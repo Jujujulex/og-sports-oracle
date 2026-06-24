@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { parseEther } from 'viem';
 import { useWallet } from './config/useWallet';
 import NETWORK_CONFIG from './config/network';
 import {
@@ -121,6 +122,10 @@ export default function App() {
   const [requestType, setRequestType] = useState<'match' | 'player' | 'team' | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [dataRequestKind, setDataRequestKind] = useState('Match Result');
+  const [txStatus, setTxStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
+  const [txHash, setTxHash] = useState('');
+  const [txError, setTxError] = useState('');
 
   // Refs for scroll navigation
   const homeRef = useRef<HTMLDivElement>(null);
@@ -160,6 +165,37 @@ export default function App() {
     navigator.clipboard.writeText(wallet.address);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const closeRequestModal = () => {
+    setShowRequestModal(false);
+    setSelectedPrediction(null);
+    setRequestType(null);
+    setTxStatus('idle');
+    setTxHash('');
+    setTxError('');
+  };
+
+  // The price (in $0G) for whatever the modal is currently requesting.
+  const activePrice = selectedPrediction ? selectedPrediction.price : '0.01';
+
+  const handleConfirmAndPay = async () => {
+    setTxError('');
+    setTxStatus('pending');
+    try {
+      const recipient = NETWORK_CONFIG.contracts.sportsOracle;
+      const hash = await wallet.sendPayment(recipient, parseEther(activePrice));
+      setTxHash(hash);
+      setTxStatus('success');
+    } catch (err: any) {
+      // 4001 = user rejected the transaction in their wallet.
+      setTxError(
+        err?.code === 4001
+          ? 'Transaction rejected in wallet.'
+          : err?.message ?? 'Transaction failed.'
+      );
+      setTxStatus('error');
+    }
   };
 
   const filteredMatches = activeSport === 'all' 
@@ -891,7 +927,7 @@ function requestSportsData(
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowRequestModal(false)}
+            onClick={closeRequestModal}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
@@ -905,7 +941,7 @@ function requestSportsData(
                   {selectedPrediction ? 'Purchase Prediction' : 'Request Sports Data'}
                 </h3>
                 <button
-                  onClick={() => { setShowRequestModal(false); setSelectedPrediction(null); setRequestType(null); }}
+                  onClick={closeRequestModal}
                   className="p-2 rounded-lg hover:bg-white/10 transition-colors"
                 >
                   <X className="w-5 h-5" />
@@ -963,7 +999,12 @@ function requestSportsData(
                         {['Match Result', 'Player Stats', 'Team Form'].map((type) => (
                           <button
                             key={type}
-                            className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-sm transition-colors"
+                            onClick={() => setDataRequestKind(type)}
+                            className={`p-3 rounded-xl text-sm transition-colors ${
+                              dataRequestKind === type
+                                ? 'bg-[var(--accent)] text-white'
+                                : 'bg-white/5 hover:bg-white/10'
+                            }`}
                           >
                             {type}
                           </button>
@@ -986,25 +1027,52 @@ function requestSportsData(
                     </div>
                   )}
 
-                  <div className="flex gap-3 mt-6">
-                    <button
-                      onClick={() => { setShowRequestModal(false); setSelectedPrediction(null); setRequestType(null); }}
-                      className="flex-1 py-3 rounded-xl border border-[var(--border)] hover:bg-white/5 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => { 
-                        alert('Transaction submitted! (Demo mode)');
-                        setShowRequestModal(false);
-                        setSelectedPrediction(null);
-                        setRequestType(null);
-                      }}
-                      className="flex-1 py-3 rounded-xl bg-[var(--accent)] text-white font-medium hover:bg-[var(--accent)]/90 transition-colors"
-                    >
-                      Confirm and Pay
-                    </button>
-                  </div>
+                  {txStatus === 'success' ? (
+                    <div className="mt-6 text-center space-y-3">
+                      <div className="flex items-center justify-center gap-2 text-[var(--accent)]">
+                        <Check className="w-5 h-5" />
+                        <span className="font-medium">Payment confirmed on 0G</span>
+                      </div>
+                      <a
+                        href={`${NETWORK_CONFIG.testnet.blockExplorerUrls[0]}/tx/${txHash}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-sm text-[var(--muted)] hover:text-[var(--accent)] underline break-all"
+                      >
+                        View transaction <ExternalLink className="w-3 h-3" />
+                      </a>
+                      <button
+                        onClick={closeRequestModal}
+                        className="w-full py-3 rounded-xl bg-[var(--accent)] text-white font-medium hover:bg-[var(--accent)]/90 transition-colors"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {txError && (
+                        <p className="text-sm text-red-400 mt-4">{txError}</p>
+                      )}
+                      <div className="flex gap-3 mt-6">
+                        <button
+                          onClick={closeRequestModal}
+                          disabled={txStatus === 'pending'}
+                          className="flex-1 py-3 rounded-xl border border-[var(--border)] hover:bg-white/5 transition-colors disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleConfirmAndPay}
+                          disabled={txStatus === 'pending'}
+                          className="flex-1 py-3 rounded-xl bg-[var(--accent)] text-white font-medium hover:bg-[var(--accent)]/90 transition-colors disabled:opacity-60"
+                        >
+                          {txStatus === 'pending'
+                            ? 'Confirm in wallet...'
+                            : `Confirm and Pay ${activePrice} $0G`}
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </motion.div>
