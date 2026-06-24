@@ -59,6 +59,8 @@ export interface WalletState {
   connect: () => Promise<void>;
   disconnect: () => void;
   switchToOgChain: () => Promise<void>;
+  /** Send a native $0G payment. Returns the tx hash. Throws on rejection/failure. */
+  sendPayment: (to: string, amountWei: bigint) => Promise<string>;
 }
 
 const shorten = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -151,6 +153,27 @@ export function useWallet(): WalletState {
     setError(null);
   }, []);
 
+  const sendPayment = useCallback(
+    async (to: string, amountWei: bigint): Promise<string> => {
+      if (!provider) throw new Error('No wallet connected.');
+      if (!address) throw new Error('Connect your wallet first.');
+      // Make sure funds leave on the 0G chain, not whatever was selected.
+      await ensureChain(provider);
+      const txHash = (await provider.request({
+        method: 'eth_sendTransaction',
+        params: [
+          {
+            from: address,
+            to,
+            value: `0x${amountWei.toString(16)}`,
+          },
+        ],
+      })) as string;
+      return txHash;
+    },
+    [provider, address]
+  );
+
   return {
     address,
     shortAddress: address ? shorten(address) : '',
@@ -161,6 +184,7 @@ export function useWallet(): WalletState {
     connect,
     disconnect,
     switchToOgChain,
+    sendPayment,
   };
 }
 

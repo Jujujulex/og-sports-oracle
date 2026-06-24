@@ -16,9 +16,10 @@ export const NETWORK_CONFIG = {
     faucet: 'https://faucet.0g.ai'
   },
   
-  // Contract addresses (update after deployment)
+  // Contract addresses (override per-environment with VITE_ORACLE_CONTRACT).
   contracts: {
-    sportsOracle: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+    sportsOracle: (import.meta.env.VITE_ORACLE_CONTRACT ??
+      '0xe242d4a4b67e3034f2846250aE4CA8940BC4f356') as `0x${string}`,
     storage: '0x0000000000000000000000000000000000000000' as `0x${string}`
   },
   
