@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useWallet } from './config/useWallet';
+import NETWORK_CONFIG from './config/network';
 import {
   Trophy, Zap, TrendingUp, Users, Clock, ChevronRight, ChevronDown,
   Globe, Wallet, Bell, Moon, Sun, Menu, X, ExternalLink, Copy,
@@ -111,8 +113,9 @@ export default function App() {
   const [isDark, setIsDark] = useState(true);
   const [showNotif, setShowNotif] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [connected, setConnected] = useState(false);
-  const [walletAddress, setWalletAddress] = useState('');
+  const wallet = useWallet();
+  const connected = wallet.isConnected;
+  const walletAddress = wallet.shortAddress;
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedPrediction, setSelectedPrediction] = useState<Prediction | null>(null);
   const [requestType, setRequestType] = useState<'match' | 'player' | 'team' | null>(null);
@@ -146,16 +149,15 @@ export default function App() {
 
   const connectWallet = () => {
     if (connected) {
-      setConnected(false);
-      setWalletAddress('');
+      wallet.disconnect();
     } else {
-      setConnected(true);
-      setWalletAddress('0x7a3b...9f2e');
+      wallet.connect();
     }
   };
 
   const copyAddress = () => {
-    navigator.clipboard.writeText('0x7a3b2c8d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b');
+    if (!wallet.address) return;
+    navigator.clipboard.writeText(wallet.address);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -247,15 +249,29 @@ export default function App() {
               </div>
 
               <button
-                onClick={connectWallet}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                  connected 
-                    ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/30' 
+                onClick={
+                  connected && !wallet.isCorrectChain
+                    ? wallet.switchToOgChain
+                    : connectWallet
+                }
+                disabled={wallet.isConnecting}
+                title={connected ? wallet.address ?? '' : undefined}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-60 ${
+                  connected && !wallet.isCorrectChain
+                    ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/30'
+                    : connected
+                    ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/30'
                     : 'bg-[var(--accent)] text-white hover:bg-[var(--accent)]/90'
                 }`}
               >
                 <Wallet className="w-4 h-4" />
-                {connected ? walletAddress : 'Connect Wallet'}
+                {wallet.isConnecting
+                  ? 'Connecting...'
+                  : connected && !wallet.isCorrectChain
+                  ? 'Wrong Network'
+                  : connected
+                  ? walletAddress
+                  : 'Connect Wallet'}
               </button>
 
               <button
@@ -899,13 +915,27 @@ function requestSportsData(
               {!connected ? (
                 <div className="text-center py-8">
                   <Wallet className="w-12 h-12 text-[var(--accent)] mx-auto mb-4" />
-                  <p className="text-[var(--muted)] mb-4">Connect your wallet to continue</p>
+                  <p className="text-[var(--muted)] mb-4">
+                    Connect your wallet to the {NETWORK_CONFIG.testnet.chainName} to continue
+                  </p>
                   <button
                     onClick={() => { connectWallet(); }}
-                    className="px-6 py-3 bg-[var(--accent)] text-white rounded-xl font-medium hover:bg-[var(--accent)]/90"
+                    disabled={wallet.isConnecting}
+                    className="px-6 py-3 bg-[var(--accent)] text-white rounded-xl font-medium hover:bg-[var(--accent)]/90 disabled:opacity-60"
                   >
-                    Connect Wallet
+                    {wallet.isConnecting ? 'Connecting...' : 'Connect Wallet'}
                   </button>
+                  {wallet.error && (
+                    <p className="text-sm text-red-400 mt-4">{wallet.error}</p>
+                  )}
+                  <a
+                    href={NETWORK_CONFIG.testnet.faucet}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block text-xs text-[var(--muted)] mt-4 hover:text-[var(--accent)] underline"
+                  >
+                    Need test tokens? Get $0G from the faucet
+                  </a>
                 </div>
               ) : (
                 <>
