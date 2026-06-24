@@ -34,12 +34,13 @@ export interface Analysis {
   basis: string;
 }
 
-// Used when the serverless API isn't available (local dev / outage).
+// Shown only when the serverless API is unreachable. Deliberately all
+// "upcoming" with no scores so nothing is mistaken for a real live match —
+// the UI also flags this with a "Demo data" badge.
 export const FALLBACK_MATCHES: Match[] = [
-  { id: '1', sport: 'football', league: 'Premier League', homeTeam: 'Arsenal', awayTeam: 'Chelsea', homeScore: 2, awayScore: 1, status: 'live', time: 'LIVE', date: 'Today', odds: { home: 1.45, draw: 4.2, away: 6.5 } },
-  { id: '2', sport: 'football', league: 'La Liga', homeTeam: 'Real Madrid', awayTeam: 'Barcelona', status: 'upcoming', date: 'Tomorrow 21:00', odds: { home: 2.1, draw: 3.4, away: 3.2 } },
-  { id: '6', sport: 'football', league: 'Premier League', homeTeam: 'Man City', awayTeam: 'Liverpool', status: 'upcoming', date: 'Sat 17:30', odds: { home: 1.75, draw: 3.8, away: 4.5 } },
-  { id: '7', sport: 'football', league: 'La Liga', homeTeam: 'Atletico Madrid', awayTeam: 'Sevilla', status: 'upcoming', date: 'Sun 21:00', odds: { home: 1.55, draw: 4.0, away: 5.8 } },
+  { id: 'demo-1', sport: 'football', league: 'Demo · Premier League', homeTeam: 'Arsenal', awayTeam: 'Chelsea', status: 'upcoming', date: 'Sample', odds: { home: 1.45, draw: 4.2, away: 6.5 } },
+  { id: 'demo-2', sport: 'football', league: 'Demo · La Liga', homeTeam: 'Real Madrid', awayTeam: 'Barcelona', status: 'upcoming', date: 'Sample', odds: { home: 2.1, draw: 3.4, away: 3.2 } },
+  { id: 'demo-3', sport: 'football', league: 'Demo · Premier League', homeTeam: 'Man City', awayTeam: 'Liverpool', status: 'upcoming', date: 'Sample', odds: { home: 1.75, draw: 3.8, away: 4.5 } },
 ];
 
 export interface MatchesResult {
