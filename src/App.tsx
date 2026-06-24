@@ -434,7 +434,6 @@ export default function App() {
     price: number;
   } | null>(null);
   const [resolvingStep, setResolvingStep] = useState<number>(0);
-  const [resolvingTxError, setResolvingTxError] = useState<string>('');
   const [resolutionOutcome, setResolutionOutcome] = useState<{
     isWin: boolean;
     actualWinner: string;
@@ -443,34 +442,6 @@ export default function App() {
 
   useEffect(() => {
     if (!resolvingPrediction) return;
-    
-    if (resolvingStep === 0) {
-      let active = true;
-      const runTx = async () => {
-        try {
-          setResolvingTxError('');
-          const sportId = sportToId(resolvingPrediction.prediction.category);
-          const query = `${resolvingPrediction.prediction.title}: ${resolvingPrediction.optionName}`;
-          // Request data on-chain using native $0G token payment
-          await wallet.requestData(sportId, query, parseEther(resolvingPrediction.price.toString()));
-          if (active) {
-            setResolvingStep(1);
-          }
-        } catch (err: any) {
-          if (active) {
-            setResolvingTxError(
-              err?.code === 4001
-                ? 'Transaction rejected in wallet.'
-                : err?.shortMessage ?? err?.message ?? 'Transaction failed.'
-            );
-          }
-        }
-      };
-      runTx();
-      return () => {
-        active = false;
-      };
-    }
     
     if (resolvingStep === 1) {
       const timer = setTimeout(() => setResolvingStep(2), 1500);
@@ -532,8 +503,7 @@ export default function App() {
       chance,
       price
     });
-    setResolvingStep(0);
-    setResolvingTxError('');
+    setResolvingStep(1); // Starts directly at step 1 since wallet transaction has successfully signed on-chain!
     setResolutionOutcome(null);
   };
 
@@ -1396,10 +1366,17 @@ export default function App() {
                   </button>
                 ) : (
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       const opt = pred.options?.find(o => o.name === selectedOptions[pred.id]);
                       if (opt) {
-                        triggerResolutionSimulation(pred, opt.name, opt.chance, parseFloat(pred.price));
+                        try {
+                          const sportId = sportToId(pred.category);
+                          const query = `${pred.title}: ${opt.name}`;
+                          await wallet.requestData(sportId, query, parseEther(pred.price));
+                          triggerResolutionSimulation(pred, opt.name, opt.chance, parseFloat(pred.price));
+                        } catch (err: any) {
+                          alert(err?.shortMessage ?? err?.message ?? 'Transaction rejected or failed.');
+                        }
                       }
                     }}
                     className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-orange)] text-white text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer"
@@ -1908,57 +1885,23 @@ function requestSportsData(
                 {/* Current Active Step / Animation */}
                 {resolvingStep < 3 && (
                   <div className="flex flex-col items-center justify-center py-6 text-center space-y-4">
-                    {resolvingTxError ? (
-                      <>
-                        <div className="w-16 h-16 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 flex items-center justify-center">
-                          <X className="w-8 h-8" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-red-400">Transaction Failed</p>
-                          <p className="text-xs text-[var(--muted)] mt-1.5 max-w-xs mx-auto">
-                            {resolvingTxError}
-                          </p>
-                        </div>
-                        <div className="flex gap-2 w-full pt-2">
-                          <button
-                            onClick={() => {
-                              setResolvingTxError('');
-                              setResolvingStep(0);
-                            }}
-                            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-orange)] text-white text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
-                          >
-                            Retry
-                          </button>
-                          <button
-                            onClick={() => setResolvingPrediction(null)}
-                            className="flex-1 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-semibold hover:bg-white/10 transition-colors cursor-pointer"
-                          >
-                            Close
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="relative">
-                          {/* Outer spinning ring */}
-                          <div className="w-16 h-16 rounded-full border-2 border-white/5 border-t-[var(--accent)] animate-spin" />
-                          {/* Inner pulsing dot */}
-                          <div className="absolute inset-2 bg-gradient-to-tr from-[var(--accent)] to-[var(--accent-orange)] rounded-full flex items-center justify-center">
-                            <Lock className="w-6 h-6 text-white animate-pulse" />
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-white">
-                            {resolvingStep === 0 && "Initiating 0G Wallet transaction..."}
-                            {resolvingStep === 1 && "Verifying Data Availability on 0G DA..."}
-                            {resolvingStep === 2 && "Computing AI Inference Resolution Proof..."}
-                          </p>
-                          <p className="text-xs text-[var(--muted)] mt-1">
-                            Please do not close this window.
-                          </p>
-                        </div>
-                      </>
-                    )}
+                    <div className="relative">
+                      {/* Outer spinning ring */}
+                      <div className="w-16 h-16 rounded-full border-2 border-white/5 border-t-[var(--accent)] animate-spin" />
+                      {/* Inner pulsing dot */}
+                      <div className="absolute inset-2 bg-gradient-to-tr from-[var(--accent)] to-[var(--accent-orange)] rounded-full flex items-center justify-center">
+                        <Lock className="w-6 h-6 text-white animate-pulse" />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">
+                        {resolvingStep === 1 && "Verifying Data Availability on 0G DA..."}
+                        {resolvingStep === 2 && "Computing AI Inference Resolution Proof..."}
+                      </p>
+                      <p className="text-xs text-[var(--muted)] mt-1">
+                        Please do not close this window.
+                      </p>
+                    </div>
                   </div>
                 )}
 
