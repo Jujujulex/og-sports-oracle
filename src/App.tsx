@@ -423,6 +423,10 @@ export default function App() {
   const [txHash, setTxHash] = useState('');
   const [txError, setTxError] = useState('');
 
+  // Developer CTA Tab and Copy States
+  const [devTab, setDevTab] = useState<'solidity' | 'javascript' | 'curl'>('solidity');
+  const [copiedDev, setCopiedDev] = useState(false);
+
   // Premium predictions selection states (no capital/stakes)
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   
@@ -505,6 +509,135 @@ export default function App() {
     });
     setResolvingStep(1); // Starts directly at step 1 since wallet transaction has successfully signed on-chain!
     setResolutionOutcome(null);
+  };
+
+  const handleCopyDev = () => {
+    const rawCodes = {
+      solidity: `// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@0g-network/contracts/interfaces/ISportsOracle.sol";
+
+contract SportsClient {
+    ISportsOracle public immutable oracle;
+
+    event PredictionReceived(bytes32 indexed requestId, string result);
+
+    constructor(address _oracle) {
+        oracle = ISportsOracle(_oracle);
+    }
+
+    function requestPrediction(
+        uint256 sportId, 
+        string calldata query
+    ) external payable {
+        uint256 fee = oracle.getPrice(sportId);
+        require(msg.value >= fee, "Fee too low");
+        oracle.requestSportsData{value: fee}(sportId, query);
+    }
+}`,
+      javascript: `import { createWalletClient, custom, parseEther } from 'viem';
+import { zeroGTestnet } from '@0g-network/chains';
+
+const client = createWalletClient({
+  chain: zeroGTestnet,
+  transport: custom(window.ethereum)
+});
+
+const txHash = await client.sendTransaction({
+  to: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  value: parseEther('0.05'),
+  data: encodeFunctionData({
+    abi: ORACLE_ABI,
+    functionName: 'requestSportsData',
+    args: [1n, 'World Cup Winner']
+  })
+});`,
+      curl: `curl -X GET \\
+  -H "Authorization: Bearer $API_KEY" \\
+  "https://og-sports-oracle.app/api/analysis?competition=PL&homeId=57&awayId=61"`
+    };
+    
+    navigator.clipboard.writeText(rawCodes[devTab]);
+    setCopiedDev(true);
+    setTimeout(() => setCopiedDev(false), 2000);
+  };
+
+  const renderDevCode = () => {
+    if (devTab === 'solidity') {
+      return (
+        <div className="text-[11px] sm:text-xs font-mono leading-relaxed text-slate-300">
+          <div><span className="text-slate-500">// SPDX-License-Identifier: MIT</span></div>
+          <div><span className="text-[#c792ea]">pragma</span> <span className="text-[#c3e88d]">solidity</span> <span className="text-[#f78c6c]">^0.8.20</span>;</div>
+          <div className="h-2"></div>
+          <div><span className="text-[#c792ea]">import</span> <span className="text-[#c3e88d]">"@0g-network/contracts/interfaces/ISportsOracle.sol"</span>;</div>
+          <div className="h-2"></div>
+          <div><span className="text-[#c792ea]">contract</span> <span className="text-[#ffcb6b]">SportsClient</span> {'{'}</div>
+          <div className="pl-4"><span className="text-[#ffcb6b]">ISportsOracle</span> <span className="text-[#eeffff] font-semibold">public immutable</span> <span className="text-[#80cbc4]">oracle</span>;</div>
+          <div className="h-2"></div>
+          <div className="pl-4"><span className="text-[#c792ea]">event</span> <span className="text-[#82b1ff]">PredictionReceived</span>(</div>
+          <div className="pl-8"><span className="text-[#ffcb6b]">bytes32</span> <span className="text-[#c792ea] font-semibold">indexed</span> <span className="text-[#eeffff]">requestId</span>,</div>
+          <div className="pl-8"><span className="text-[#ffcb6b]">string</span> <span className="text-[#eeffff]">result</span></div>
+          <div className="pl-4">);</div>
+          <div className="h-2"></div>
+          <div className="pl-4"><span className="text-[#c792ea]">constructor</span>(<span className="text-[#ffcb6b]">address</span> <span className="text-[#eeffff]">_oracle</span>) {'{'}</div>
+          <div className="pl-8"><span className="text-[#eeffff]">oracle =</span> <span className="text-[#82b1ff]">ISportsOracle</span>(<span className="text-[#eeffff]">_oracle</span>);</div>
+          <div className="pl-4">{'}'}</div>
+          <div className="h-2"></div>
+          <div className="pl-4"><span className="text-[#c792ea]">function</span> <span className="text-[#82b1ff]">requestPrediction</span>(</div>
+          <div className="pl-8"><span className="text-[#ffcb6b]">uint256</span> <span className="text-[#eeffff]">sportId</span>,</div>
+          <div className="pl-8"><span className="text-[#ffcb6b]">string calldata</span> <span className="text-[#eeffff]">query</span></div>
+          <div className="pl-4">) <span className="text-[#c792ea] font-semibold">external payable</span> {'{'}</div>
+          <div className="pl-8"><span className="text-slate-500">// Pay the query fee in native $0G</span></div>
+          <div className="pl-8"><span className="text-[#ffcb6b]">uint256</span> <span className="text-[#eeffff]">fee = oracle.</span><span className="text-[#82b1ff]">getPrice</span>(<span className="text-[#eeffff]">sportId</span>);</div>
+          <div className="pl-8"><span className="text-[#82b1ff]">require</span>(<span className="text-[#eeffff]">msg.value &gt;= fee,</span> <span className="text-[#c3e88d]">"Fee too low"</span>);</div>
+          <div className="pl-8"><span className="text-[#eeffff]">oracle.requestSportsData{'{'}value: fee{'}'}(sportId, query);</span></div>
+          <div className="pl-4">{'}'}</div>
+          <div>{'}'}</div>
+        </div>
+      );
+    }
+    if (devTab === 'javascript') {
+      return (
+        <div className="text-[11px] sm:text-xs font-mono leading-relaxed text-slate-300">
+          <div><span className="text-[#c792ea]">import</span> {'{'} <span className="text-[#eeffff]">createWalletClient</span>, <span className="text-[#eeffff]">custom</span>, <span className="text-[#eeffff]">parseEther</span> {'}'} <span className="text-[#c792ea]">from</span> <span className="text-[#c3e88d]">'viem'</span>;</div>
+          <div><span className="text-[#c792ea]">import</span> {'{'} <span className="text-[#eeffff]">zeroGTestnet</span> {'}'} <span className="text-[#c792ea]">from</span> <span className="text-[#c3e88d]">'@0g-network/chains'</span>;</div>
+          <div className="h-2"></div>
+          <div><span className="text-[#c792ea]">const</span> <span className="text-[#eeffff]">client =</span> <span className="text-[#82b1ff]">createWalletClient</span>({'{'}</div>
+          <div className="pl-4"><span className="text-[#eeffff]">chain: zeroGTestnet,</span></div>
+          <div className="pl-4"><span className="text-[#eeffff]">transport:</span> <span className="text-[#82b1ff]">custom</span>(<span className="text-[#eeffff]">window.ethereum</span>)</div>
+          <div>{'}'});</div>
+          <div className="h-2"></div>
+          <div><span className="text-slate-500">// Request data on-chain using native $0G token</span></div>
+          <div><span className="text-[#c792ea]">const</span> <span className="text-[#eeffff]">txHash =</span> <span className="text-[#c792ea]">await</span> <span className="text-[#eeffff]">client.</span><span className="text-[#82b1ff]">sendTransaction</span>({'{'}</div>
+          <div className="pl-4"><span className="text-[#eeffff]">to:</span> <span className="text-[#c3e88d]">"0x5FbDB2315678afecb367f032d93F642f64180aa3"</span>,</div>
+          <div className="pl-4"><span className="text-[#eeffff]">value:</span> <span className="text-[#82b1ff]">parseEther</span>(<span className="text-[#c3e88d]">'0.05'</span>),</div>
+          <div className="pl-4"><span className="text-[#eeffff]">data:</span> <span className="text-[#82b1ff]">encodeFunctionData</span>({'{'}</div>
+          <div className="pl-8"><span className="text-[#eeffff]">abi: ORACLE_ABI,</span></div>
+          <div className="pl-8"><span className="text-[#eeffff]">functionName:</span> <span className="text-[#c3e88d]">'requestSportsData'</span>,</div>
+          <div className="pl-8"><span className="text-[#eeffff]">args: [</span><span className="text-[#f78c6c]">1n</span><span className="text-[#eeffff]">,</span> <span className="text-[#c3e88d]">'World Cup Winner'</span><span className="text-[#eeffff]">]</span></div>
+          <div className="pl-4">{'}'})</div>
+          <div>{'}'});</div>
+        </div>
+      );
+    }
+    return (
+      <div className="text-[11px] sm:text-xs font-mono leading-relaxed text-slate-300">
+        <div><span className="text-[#82b1ff] font-semibold">curl</span> <span className="text-[#eeffff]">-X GET \</span></div>
+        <div className="pl-4"><span className="text-[#eeffff]">-H</span> <span className="text-[#c3e88d]">"Authorization: Bearer $API_KEY"</span> <span className="text-[#eeffff]">\</span></div>
+        <div className="pl-4"><span className="text-[#c3e88d]">"https://og-sports-oracle.app/api/analysis?competition=PL&amp;homeId=57&amp;awayId=61"</span></div>
+        <div className="h-4"></div>
+        <div><span className="text-slate-500"># Response Output:</span></div>
+        <div>{'{'}</div>
+        <div className="pl-4"><span className="text-[#80cbc4]">"home"</span>: <span className="text-[#f78c6c]">38</span>,</div>
+        <div className="pl-4"><span className="text-[#80cbc4]">"draw"</span>: <span className="text-[#f78c6c]">24</span>,</div>
+        <div className="pl-4"><span className="text-[#80cbc4]">"away"</span>: <span className="text-[#f78c6c]">38</span>,</div>
+        <div className="pl-4"><span className="text-[#80cbc4]">"predictedWinner"</span>: <span className="text-[#c3e88d]">"Too close to call"</span>,</div>
+        <div className="pl-4"><span className="text-[#80cbc4]">"confidence"</span>: <span className="text-[#f78c6c]">38</span>,</div>
+        <div className="pl-4"><span className="text-[#80cbc4]">"analysis"</span>: <span className="text-[#c3e88d]">"Arsenal vs Chelsea is a tactical matchup..."</span></div>
+        <div>{'}'}</div>
+      </div>
+    );
   };
 
   // Refs for scroll navigation
@@ -1436,36 +1569,75 @@ export default function App() {
               </button>
             </div>
             
-            <div className="glass rounded-xl p-4 font-mono text-sm overflow-x-auto">
-              <div className="flex items-center gap-2 mb-3 text-[var(--muted)]">
-                <span className="w-3 h-3 rounded-full bg-red-500" />
-                <span className="w-3 h-3 rounded-full bg-yellow-500" />
-                <span className="w-3 h-3 rounded-full bg-green-500" />
-                <span className="ml-2 text-xs">SportsOracle.sol</span>
+            <div className="glass rounded-2xl border border-white/10 overflow-hidden flex flex-col h-[380px] bg-slate-950/80 shadow-2xl">
+              {/* Window Controls and Tabs */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900/60 border-b border-white/5 px-4 py-3 gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-red-500/80" />
+                  <span className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                  <span className="w-3 h-3 rounded-full bg-green-500/80" />
+                  <span className="ml-2 text-xs font-mono text-[var(--muted)] font-semibold hidden sm:inline">
+                    {devTab === 'solidity' ? 'SportsClient.sol' : devTab === 'javascript' ? 'client.js' : 'request.sh'}
+                  </span>
+                </div>
+                
+                {/* Tabs */}
+                <div className="flex gap-1.5 p-0.5 bg-black/30 rounded-xl border border-white/5 w-full sm:w-auto">
+                  <button
+                    onClick={() => setDevTab('solidity')}
+                    className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg text-xs font-medium font-mono transition-all cursor-pointer ${
+                      devTab === 'solidity'
+                        ? 'bg-[var(--accent)] text-white shadow-lg shadow-[var(--accent)]/10 font-bold'
+                        : 'text-[var(--muted)] hover:text-white'
+                    }`}
+                  >
+                    Solidity
+                  </button>
+                  <button
+                    onClick={() => setDevTab('javascript')}
+                    className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg text-xs font-medium font-mono transition-all cursor-pointer ${
+                      devTab === 'javascript'
+                        ? 'bg-[var(--accent)] text-white shadow-lg shadow-[var(--accent)]/10 font-bold'
+                        : 'text-[var(--muted)] hover:text-white'
+                    }`}
+                  >
+                    Viem
+                  </button>
+                  <button
+                    onClick={() => setDevTab('curl')}
+                    className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg text-xs font-medium font-mono transition-all cursor-pointer ${
+                      devTab === 'curl'
+                        ? 'bg-[var(--accent)] text-white shadow-lg shadow-[var(--accent)]/10 font-bold'
+                        : 'text-[var(--muted)] hover:text-white'
+                    }`}
+                  >
+                    cURL
+                  </button>
+                </div>
               </div>
-              <pre className="text-xs leading-relaxed">
-{`// Request sports data on 0G
-function requestSportsData(
-  uint256 sportId,
-  string calldata queryType
-) external payable {
-  require(
-    msg.value >= getPrice(sportId),
-    "Insufficient $0G"
-  );
-  
-  requests.push(Request({
-    requester: msg.sender,
-    sportId: sportId,
-    queryType: queryType,
-    timestamp: block.timestamp
-  }));
-  
-  emit DataRequested(
-    requestId, msg.sender, sportId
-  );
-}`}
-              </pre>
+              
+              {/* Code Box Area */}
+              <div className="relative flex-1 p-5 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 select-text">
+                <button
+                  onClick={handleCopyDev}
+                  className="absolute top-4 right-4 p-2 rounded-xl bg-white/5 border border-white/10 text-[var(--muted)] hover:text-white hover:bg-white/10 transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer z-10"
+                  title="Copy to Clipboard"
+                >
+                  {copiedDev ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-green-400" />
+                      <span className="text-green-400">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
+                
+                {renderDevCode()}
+              </div>
             </div>
           </div>
         </div>
