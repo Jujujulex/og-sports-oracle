@@ -89,56 +89,45 @@ class SportsDataFetcher {
   async fetchFootballMatches(league: string): Promise<MatchData[]> {
     // API-Football integration
     // Note: Requires valid API key and respects rate limits
-    try {
-      const response = await fetch(
-        `https://api-football-v1.p.rapidapi.com/v3/fixtures?league=${league}&season=2024`,
-        {
-          headers: {
-            'X-RapidAPI-Key': CONFIG.API_FOOTBALL_KEY || '',
-            'X-RapidAPI-Host': 'api-football-v1.p.rapidapi.com'
-          }
+    const response = await fetch(
+      `https://api-football-v1.p.rapidapi.com/v3/fixtures?league=${league}&season=2024`,
+      {
+        headers: {
+          'X-RapidAPI-Key': CONFIG.API_FOOTBALL_KEY || '',
+          'X-RapidAPI-Host': 'api-football-v1.p.rapidapi.com'
         }
-      );
-      
-      if (!response.ok) {
-        // Fallback to mock data for demo
-        return this.getMockFootballMatches();
       }
-      
-      const data = await response.json();
-      return this.parseApiFootballData(data);
-    } catch (error) {
-      console.error('Error fetching football data:', error);
-      return this.getMockFootballMatches();
+    );
+    
+    if (!response.ok) {
+      throw new Error(`API-Football request failed: HTTP ${response.status} ${response.statusText}`);
     }
+    
+    const data = await response.json();
+    return this.parseApiFootballData(data);
   }
 
   async fetchNBAMatches(): Promise<MatchData[]> {
     // NBA Stats API integration
-    try {
-      const response = await fetch('https://stats.nba.com/stats/scoreboardV2', {
-        headers: {
-          'User-Agent': 'Mozilla/5.0',
-          'Referer': 'https://www.nba.com/',
-          'Origin': 'https://www.nba.com'
-        }
-      });
-      
-      if (!response.ok) {
-        return this.getMockNBAMatches();
+    const response = await fetch('https://stats.nba.com/stats/scoreboardV2', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0',
+        'Referer': 'https://www.nba.com/',
+        'Origin': 'https://www.nba.com'
       }
-      
-      const data = await response.json();
-      return this.parseNBAData(data);
-    } catch (error) {
-      console.error('Error fetching NBA data:', error);
-      return this.getMockNBAMatches();
+    });
+    
+    if (!response.ok) {
+      throw new Error(`NBA Stats request failed: HTTP ${response.status} ${response.statusText}`);
     }
+    
+    const data = await response.json();
+    return this.parseNBAData(data);
   }
 
   async fetchNFLMatches(): Promise<MatchData[]> {
-    // NFL data integration
-    return this.getMockNFLMatches();
+    // NFL data integration - no active integration
+    return [];
   }
 
   private parseApiFootballData(data: any): MatchData[] {
@@ -169,64 +158,6 @@ class SportsDataFetcher {
     return 'upcoming';
   }
 
-  private getMockFootballMatches(): MatchData[] {
-    return [
-      {
-        id: '1',
-        sportId: 1,
-        homeTeam: 'Arsenal',
-        awayTeam: 'Chelsea',
-        homeScore: 2,
-        awayScore: 1,
-        status: 'live',
-        timestamp: Date.now(),
-        league: 'Premier League'
-      },
-      {
-        id: '2',
-        sportId: 1,
-        homeTeam: 'Real Madrid',
-        awayTeam: 'Barcelona',
-        homeScore: 0,
-        awayScore: 0,
-        status: 'upcoming',
-        timestamp: Date.now() + 86400000,
-        league: 'La Liga'
-      }
-    ];
-  }
-
-  private getMockNBAMatches(): MatchData[] {
-    return [
-      {
-        id: '101',
-        sportId: 2,
-        homeTeam: 'Lakers',
-        awayTeam: 'Celtics',
-        homeScore: 98,
-        awayScore: 102,
-        status: 'live',
-        timestamp: Date.now(),
-        league: 'NBA'
-      }
-    ];
-  }
-
-  private getMockNFLMatches(): MatchData[] {
-    return [
-      {
-        id: '201',
-        sportId: 3,
-        homeTeam: 'Chiefs',
-        awayTeam: '49ers',
-        homeScore: 0,
-        awayScore: 0,
-        status: 'upcoming',
-        timestamp: Date.now() + 172800000,
-        league: 'NFL'
-      }
-    ];
-  }
 }
 
 // AI Prediction Engine (integrates with 0G Compute)
@@ -344,14 +275,36 @@ class OracleNode {
   async updateLiveMatches() {
     console.log('Updating live matches...');
 
+    let footballMatches: MatchData[] = [];
+    let nbaMatches: MatchData[] = [];
+    let nflMatches: MatchData[] = [];
+
     try {
-      // Fetch all sports
-      const footballMatches = await this.fetcher.fetchFootballMatches('39'); // Premier League
-      const nbaMatches = await this.fetcher.fetchNBAMatches();
-      const nflMatches = await this.fetcher.fetchNFLMatches();
+      footballMatches = await this.fetcher.fetchFootballMatches('39'); // Premier League
+    } catch (error) {
+      console.error('Error updating live football matches:', error);
+    }
 
-      const allMatches = [...footballMatches, ...nbaMatches, ...nflMatches];
+    try {
+      nbaMatches = await this.fetcher.fetchNBAMatches();
+    } catch (error) {
+      console.error('Error updating live NBA matches:', error);
+    }
 
+    try {
+      nflMatches = await this.fetcher.fetchNFLMatches();
+    } catch (error) {
+      console.error('Error updating live NFL matches:', error);
+    }
+
+    const allMatches = [...footballMatches, ...nbaMatches, ...nflMatches];
+
+    if (allMatches.length === 0) {
+      console.log('No matches updated because all sport fetches returned empty or failed.');
+      return;
+    }
+
+    try {
       // Store on 0G Storage
       const dataHash = await this.storage.store({
         timestamp: Date.now(),
@@ -365,7 +318,7 @@ class OracleNode {
         await this.updateMatchOnChain(match);
       }
     } catch (error) {
-      console.error('Error updating live matches:', error);
+      console.error('Error updating live matches data storage/chain:', error);
     }
   }
 

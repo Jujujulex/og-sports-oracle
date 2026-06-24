@@ -7,8 +7,6 @@ import {
   fetchMatches,
   fetchAnalysis,
   fetchStandings,
-  FALLBACK_MATCHES,
-  FALLBACK_STANDINGS,
   type Match,
   type Analysis,
 } from './config/sportsApi';
@@ -22,6 +20,11 @@ import {
 } from 'lucide-react';
 
 // Types (Match/Analysis live in ./config/sportsApi)
+interface PredictionOption {
+  name: string;
+  chance: number;
+}
+
 interface Prediction {
   id: string;
   title: string;
@@ -32,6 +35,7 @@ interface Prediction {
   isFree: boolean;
   reasoning?: string;
   lastUpdated: string;
+  options?: PredictionOption[];
 }
 
 interface Standing {
@@ -58,11 +62,7 @@ interface RequestHistory {
 // Mock Data Helper for Free Insights
 function generateFreeInsights(matches: Match[]): Prediction[] {
   if (!matches || matches.length === 0) {
-    return [
-      { id: 'p1', title: 'Champions League Winner', description: 'AI-powered tournament outcome with high accuracy rate models', confidence: 89, price: '0', category: 'Champions League', isFree: true, lastUpdated: '30 min ago', reasoning: 'Advanced machine learning models analyze team form, squads, expected goals (xG), and historic European competition coefficients.' },
-      { id: 'p2', title: 'Premier League Title Race', description: 'Predicted probabilities for top 3 championship contenders', confidence: 85, price: '0', category: 'Premier League', isFree: true, lastUpdated: '1 hour ago', reasoning: 'Calculated using current standings, remaining schedule difficulty rankings, historical home advantage multipliers, and recent form momentum indices.' },
-      { id: 'p3', title: 'La Liga Golden Boot', description: 'Top goalscorer metrics and confidence intervals', confidence: 75, price: '0', category: 'La Liga', isFree: true, lastUpdated: '2 hours ago', reasoning: 'Aggregating season-to-date goals, historical conversion rates, shot volumes per 90, and penalty taker priority structures.' },
-    ];
+    return [];
   }
 
   // Take the first 3 matches
@@ -102,12 +102,103 @@ function generateFreeInsights(matches: Match[]): Prediction[] {
 }
 
 const paidPredictions: Prediction[] = [
-  { id: 'p4', title: 'World Cup Winner', description: 'AI-powered tournament winner prediction with detailed analysis', confidence: 89, price: '0.05', category: 'FIFA World Cup', isFree: false, reasoning: 'Advanced ML model analyzing 500+ factors including team form, injuries, historical performance, and tactical matchups', lastUpdated: '30 min ago' },
-  { id: 'p5', title: 'Golden Boot Winner', description: 'Top goalscorer prediction with confidence intervals', confidence: 82, price: '0.03', category: 'FIFA World Cup', isFree: false, lastUpdated: '1 hour ago' },
-  { id: 'p6', title: 'Best Coach Award', description: 'Tournament best coach prediction', confidence: 75, price: '0.02', category: 'FIFA World Cup', isFree: false, lastUpdated: '2 hours ago' },
-  { id: 'p7', title: 'Premier League Champion', description: 'Full season outcome with relegation predictions', confidence: 88, price: '0.08', category: 'Premier League', isFree: false, lastUpdated: '45 min ago' },
-  { id: 'p8', title: 'La Liga Surprise Package', description: 'Underdog team likely to exceed expectations', confidence: 68, price: '0.02', category: 'La Liga', isFree: false, lastUpdated: '4 hours ago' },
-  { id: 'p9', title: 'NFL Super Bowl Winner', description: 'Complete playoff bracket prediction', confidence: 76, price: '0.06', category: 'NFL', isFree: false, lastUpdated: '2 hours ago' },
+  { 
+    id: 'p4', 
+    title: 'World Cup Winner', 
+    description: 'AI-powered tournament winner prediction with detailed analysis', 
+    confidence: 89, 
+    price: '0.05', 
+    category: 'FIFA World Cup', 
+    isFree: false, 
+    reasoning: 'Advanced ML model analyzing 500+ factors including team form, injuries, historical performance, and tactical matchups', 
+    lastUpdated: '30 min ago',
+    options: [
+      { name: 'France', chance: 38 },
+      { name: 'Brazil', chance: 35 },
+      { name: 'Argentina', chance: 32 },
+      { name: 'England', chance: 28 }
+    ]
+  },
+  { 
+    id: 'p5', 
+    title: 'Golden Boot Winner', 
+    description: 'Top goalscorer prediction with confidence intervals', 
+    confidence: 82, 
+    price: '0.03', 
+    category: 'FIFA World Cup', 
+    isFree: false, 
+    lastUpdated: '1 hour ago',
+    options: [
+      { name: 'Erling Haaland', chance: 39 },
+      { name: 'Kylian Mbappé', chance: 35 },
+      { name: 'Harry Kane', chance: 25 },
+      { name: 'Mohamed Salah', chance: 18 }
+    ]
+  },
+  { 
+    id: 'p6', 
+    title: 'Best Coach Award', 
+    description: 'Tournament best coach prediction', 
+    confidence: 75, 
+    price: '0.02', 
+    category: 'FIFA World Cup', 
+    isFree: false, 
+    lastUpdated: '2 hours ago',
+    options: [
+      { name: 'Pep Guardiola', chance: 35 },
+      { name: 'Carlo Ancelotti', chance: 30 },
+      { name: 'Jurgen Klopp', chance: 25 },
+      { name: 'Mikel Arteta', chance: 20 }
+    ]
+  },
+  { 
+    id: 'p7', 
+    title: 'Premier League Champion', 
+    description: 'Full season outcome with relegation predictions', 
+    confidence: 88, 
+    price: '0.08', 
+    category: 'Premier League', 
+    isFree: false, 
+    lastUpdated: '45 min ago',
+    options: [
+      { name: 'Man City', chance: 38 },
+      { name: 'Arsenal', chance: 35 },
+      { name: 'Liverpool', chance: 30 },
+      { name: 'Chelsea', chance: 15 }
+    ]
+  },
+  { 
+    id: 'p8', 
+    title: 'La Liga Surprise Package', 
+    description: 'Underdog team likely to exceed expectations', 
+    confidence: 68, 
+    price: '0.02', 
+    category: 'La Liga', 
+    isFree: false, 
+    lastUpdated: '4 hours ago',
+    options: [
+      { name: 'Girona', chance: 32 },
+      { name: 'Real Sociedad', chance: 25 },
+      { name: 'Athletic Bilbao', chance: 20 },
+      { name: 'Real Betis', chance: 15 }
+    ]
+  },
+  { 
+    id: 'p9', 
+    title: 'NFL Super Bowl Winner', 
+    description: 'Complete playoff bracket prediction', 
+    confidence: 76, 
+    price: '0.06', 
+    category: 'NFL', 
+    isFree: false, 
+    lastUpdated: '2 hours ago',
+    options: [
+      { name: 'Chiefs', chance: 38 },
+      { name: '49ers', chance: 35 },
+      { name: 'Eagles', chance: 30 },
+      { name: 'Ravens', chance: 28 }
+    ]
+  },
 ];
 
 
@@ -305,9 +396,11 @@ export default function App() {
   const [playerStatsTeam, setPlayerStatsTeam] = useState<'home' | 'away'>('home');
 
   // Live sports data
-  const [matches, setMatches] = useState<Match[]>(FALLBACK_MATCHES);
+  const [matches, setMatches] = useState<Match[]>([]);
   const [matchesLoading, setMatchesLoading] = useState(true);
-  const [standings, setStandings] = useState<Standing[]>(FALLBACK_STANDINGS);
+  const [matchesError, setMatchesError] = useState<string>('');
+  const [standings, setStandings] = useState<Standing[]>([]);
+  const [standingsError, setStandingsError] = useState<string>('');
 
   // Generate dynamic free insights based on match feed
   const freePredictions = generateFreeInsights(matches);
@@ -320,6 +413,106 @@ export default function App() {
   const [txStatus, setTxStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
   const [txHash, setTxHash] = useState('');
   const [txError, setTxError] = useState('');
+
+  // Premium predictions selection & staking states
+  const [mockCapital, setMockCapital] = useState<number>(() => {
+    const stored = localStorage.getItem('og_sports_mock_capital');
+    return stored ? parseFloat(stored) : 1000.00;
+  });
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [stakedCapitals, setStakedCapitals] = useState<Record<string, number>>({});
+  
+  // Resolution simulation states
+  const [resolvingPrediction, setResolvingPrediction] = useState<{
+    prediction: Prediction;
+    optionName: string;
+    chance: number;
+    stake: number;
+  } | null>(null);
+  const [resolvingStep, setResolvingStep] = useState<number>(0);
+  const [resolutionOutcome, setResolutionOutcome] = useState<{
+    isWin: boolean;
+    actualWinner: string;
+    payout: number;
+  } | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem('og_sports_mock_capital', mockCapital.toFixed(2));
+  }, [mockCapital]);
+
+  useEffect(() => {
+    if (!resolvingPrediction) return;
+    
+    if (resolvingStep === 0) {
+      const timer = setTimeout(() => setResolvingStep(1), 1500);
+      return () => clearTimeout(timer);
+    }
+    
+    if (resolvingStep === 1) {
+      const timer = setTimeout(() => setResolvingStep(2), 1500);
+      return () => clearTimeout(timer);
+    }
+    
+    if (resolvingStep === 2) {
+      const timer = setTimeout(() => {
+        const roll = Math.random() * 100;
+        const isWin = roll <= resolvingPrediction.chance;
+        
+        let actualWinner = resolvingPrediction.optionName;
+        if (!isWin && resolvingPrediction.prediction.options) {
+          const otherOptions = resolvingPrediction.prediction.options.filter(
+            o => o.name !== resolvingPrediction.optionName
+          );
+          if (otherOptions.length > 0) {
+            const randomOption = otherOptions[Math.floor(Math.random() * otherOptions.length)];
+            actualWinner = randomOption.name;
+          } else {
+            actualWinner = 'Another Contender';
+          }
+        }
+        
+        const profit = resolvingPrediction.stake * 0.1;
+        const payout = isWin ? profit : -resolvingPrediction.stake;
+        
+        setResolutionOutcome({
+          isWin,
+          actualWinner,
+          payout
+        });
+        
+        setMockCapital(prev => Math.max(0, prev + payout));
+        
+        const newHistoryItem: RequestHistory = {
+          id: 'rh-' + Date.now(),
+          type: 'Premium Staked Pick',
+          query: `${resolvingPrediction.prediction.title}: ${resolvingPrediction.optionName} (${isWin ? 'Won' : 'Lost'})`,
+          price: resolvingPrediction.prediction.price,
+          timestamp: 'Just now',
+          status: 'completed'
+        };
+        setHistory(prev => [newHistoryItem, ...prev]);
+
+        setResolvingStep(3);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [resolvingPrediction, resolvingStep]);
+
+  const triggerResolutionSimulation = (
+    pred: Prediction,
+    optionName: string,
+    chance: number,
+    stake: number
+  ) => {
+    setResolvingPrediction({
+      prediction: pred,
+      optionName,
+      chance,
+      stake
+    });
+    setResolvingStep(0);
+    setResolutionOutcome(null);
+  };
 
   // Refs for scroll navigation
   const homeRef = useRef<HTMLDivElement>(null);
@@ -352,14 +545,16 @@ export default function App() {
 
   const loadMatches = async () => {
     setMatchesLoading(true);
-    const { matches: data } = await fetchMatches();
+    const { matches: data, error } = await fetchMatches();
     setMatches(data);
+    setMatchesError(error || '');
     setMatchesLoading(false);
   };
 
   const loadStandings = async () => {
-    const { standings: data } = await fetchStandings();
+    const { standings: data, error } = await fetchStandings();
     setStandings(data);
+    setStandingsError(error || '');
   };
 
   // Load real fixtures & standings on mount, then refresh every 60s for live scores.
@@ -605,6 +800,19 @@ export default function App() {
                 </AnimatePresence>
               </div>
 
+              {/* Mock Capital Badge */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-sm font-semibold">
+                <span className="text-[var(--muted)]">Capital:</span>
+                <span className="text-[var(--accent)] font-bold">{mockCapital.toFixed(2)} $0G</span>
+                <button 
+                  onClick={() => setMockCapital(1000.00)} 
+                  className="ml-1 p-1 hover:bg-white/10 rounded text-xs text-[var(--muted)] hover:text-white flex items-center justify-center transition-colors"
+                  title="Reset Capital to 1000 $0G"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                </button>
+              </div>
+
               <button
                 onClick={
                   connected && !wallet.isCorrectChain
@@ -806,6 +1014,15 @@ export default function App() {
           </button>
         </div>
 
+        {matchesError && (
+          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl text-sm mb-6 flex items-center gap-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+            <span>
+              <strong>API Error:</strong> {matchesError}. Please check your connection and configuration keys (e.g., <code>FOOTBALL_DATA_KEY</code>).
+            </span>
+          </div>
+        )}
+
         {matchesLoading && filteredMatches.length === 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[0, 1, 2, 3, 4, 5].map((n) => (
@@ -918,39 +1135,54 @@ export default function App() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {freePredictions.map((pred, i) => (
-            <motion.div
-              key={pred.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: i * 0.1 }}
-              className="glass rounded-2xl p-5 hover:border-[var(--accent)]/30 transition-all cursor-pointer"
-              onClick={() => { setSelectedPrediction(pred); setShowRequestModal(true); }}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <span className="text-xs px-2 py-1 rounded-lg bg-[var(--accent)]/10 text-[var(--accent)]">
-                  {pred.category}
-                </span>
-                <span className="text-xs text-[var(--muted)]">{pred.lastUpdated}</span>
+          {matchesLoading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="glass rounded-2xl p-5 h-44 animate-pulse bg-white/5 flex flex-col justify-between">
+                <div className="h-4 bg-white/10 rounded w-1/4" />
+                <div className="h-6 bg-white/10 rounded w-3/4" />
+                <div className="h-4 bg-white/10 rounded w-1/2" />
+                <div className="h-8 bg-white/10 rounded w-full" />
               </div>
-              
-              <h3 className="font-semibold mb-2">{pred.title}</h3>
-              <p className="text-sm text-[var(--muted)] mb-4">{pred.description}</p>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-16 h-2 rounded-full bg-white/10 overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-orange)] rounded-full"
-                      style={{ width: `${pred.confidence}%` }}
-                    />
-                  </div>
-                  <span className="text-sm font-bold text-[var(--accent)]">{pred.confidence}%</span>
+            ))
+          ) : freePredictions.length === 0 ? (
+            <div className="col-span-1 md:col-span-3 glass rounded-2xl p-8 text-center text-[var(--muted)]">
+              No free insights currently available.
+            </div>
+          ) : (
+            freePredictions.map((pred, i) => (
+              <motion.div
+                key={pred.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: i * 0.1 }}
+                className="glass rounded-2xl p-5 hover:border-[var(--accent)]/30 transition-all cursor-pointer"
+                onClick={() => { setSelectedPrediction(pred); setShowRequestModal(true); }}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <span className="text-xs px-2 py-1 rounded-lg bg-[var(--accent)]/10 text-[var(--accent)]">
+                    {pred.category}
+                  </span>
+                  <span className="text-xs text-[var(--muted)]">{pred.lastUpdated}</span>
                 </div>
-                <span className="text-xs px-2 py-1 rounded bg-green-500/10 text-green-400">FREE</span>
-              </div>
-            </motion.div>
-          ))}
+                
+                <h3 className="font-semibold mb-2">{pred.title}</h3>
+                <p className="text-sm text-[var(--muted)] mb-4">{pred.description}</p>
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-16 h-2 rounded-full bg-white/10 overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-orange)] rounded-full"
+                        style={{ width: `${pred.confidence}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-bold text-[var(--accent)]">{pred.confidence}%</span>
+                  </div>
+                  <span className="text-xs px-2 py-1 rounded bg-green-500/10 text-green-400">FREE</span>
+                </div>
+              </motion.div>
+            ))
+          )}
         </div>
       </section>
 
@@ -984,31 +1216,45 @@ export default function App() {
                 </tr>
               </thead>
               <tbody>
-                {standings.map((team, i) => (
-                  <tr 
-                    key={team.team} 
-                    className="border-t border-[var(--border)] hover:bg-white/5 transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${
-                        i < 4 ? 'bg-[var(--accent)]/20 text-[var(--accent)]' : 'bg-white/5'
-                      }`}>
-                        {team.rank}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-medium">{team.team}</td>
-                    <td className="px-4 py-3 text-center text-[var(--muted)]">{team.played}</td>
-                    <td className="px-4 py-3 text-center">{team.won}</td>
-                    <td className="px-4 py-3 text-center text-[var(--muted)]">{team.drawn}</td>
-                    <td className="px-4 py-3 text-center text-red-400">{team.lost}</td>
-                    <td className="px-4 py-3 text-center font-bold text-[var(--accent)]">{team.points}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1">
-                        {team.form.map((r, j) => <FormBadge key={j} result={r} />)}
-                      </div>
+                {standingsError ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-red-400 text-sm font-medium">
+                      <strong>Failed to load standings:</strong> {standingsError}
                     </td>
                   </tr>
-                ))}
+                ) : standings.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-[var(--muted)] text-sm">
+                      Loading latest standings...
+                    </td>
+                  </tr>
+                ) : (
+                  standings.map((team, i) => (
+                    <tr 
+                      key={team.team} 
+                      className="border-t border-[var(--border)] hover:bg-white/5 transition-colors"
+                    >
+                      <td className="px-4 py-3">
+                        <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${
+                          i < 4 ? 'bg-[var(--accent)]/20 text-[var(--accent)]' : 'bg-white/5'
+                        }`}>
+                          {team.rank}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-medium">{team.team}</td>
+                      <td className="px-4 py-3 text-center text-[var(--muted)]">{team.played}</td>
+                      <td className="px-4 py-3 text-center">{team.won}</td>
+                      <td className="px-4 py-3 text-center text-[var(--muted)]">{team.drawn}</td>
+                      <td className="px-4 py-3 text-center text-red-400">{team.lost}</td>
+                      <td className="px-4 py-3 text-center font-bold text-[var(--accent)]">{team.points}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1">
+                          {team.form.map((r, j) => <FormBadge key={j} result={r} />)}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -1066,6 +1312,86 @@ export default function App() {
               {pred.reasoning && (
                 <p className="text-xs text-[var(--muted)] mb-4 line-clamp-2">{pred.reasoning}</p>
               )}
+
+              {pred.options && (
+                <div className="mb-4">
+                  <span className="text-xs font-semibold text-[var(--muted)] block mb-2">Options Pick (Carousel):</span>
+                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/10">
+                    {pred.options.map((opt) => {
+                      const isSelected = selectedOptions[pred.id] === opt.name;
+                      return (
+                        <button
+                          key={opt.name}
+                          onClick={() => {
+                            setSelectedOptions(prev => ({ ...prev, [pred.id]: opt.name }));
+                            if (!stakedCapitals[pred.id]) {
+                              setStakedCapitals(prev => ({ ...prev, [pred.id]: 10 }));
+                            }
+                          }}
+                          type="button"
+                          className={`flex-shrink-0 px-3 py-2 rounded-xl border text-xs transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                            isSelected 
+                              ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-white font-bold' 
+                              : 'bg-white/5 border-white/10 hover:border-white/20 text-[var(--muted)] hover:text-white'
+                          }`}
+                          style={{ minWidth: '95px' }}
+                        >
+                          <span className="truncate max-w-[85px] font-semibold">{opt.name}</span>
+                          <span className="text-[10px] opacity-75 font-normal">{opt.chance}% chance</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {selectedOptions[pred.id] && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="mb-4 pt-2 border-t border-white/5 overflow-hidden"
+                >
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="text-xs text-[var(--muted)]">Capital to Stake:</span>
+                    <span className="text-xs font-mono font-bold text-white">
+                      {(stakedCapitals[pred.id] || 10)} $0G
+                    </span>
+                  </div>
+                  
+                  <div className="flex gap-3 items-center">
+                    <input 
+                      type="range"
+                      min="1"
+                      max={Math.min(mockCapital, 1000)}
+                      value={stakedCapitals[pred.id] || 10}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        setStakedCapitals(prev => ({ ...prev, [pred.id]: val }));
+                      }}
+                      className="flex-1 accent-[var(--accent)] h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                    />
+                    <input
+                      type="number"
+                      min="1"
+                      max={mockCapital}
+                      value={stakedCapitals[pred.id] || 10}
+                      onChange={(e) => {
+                        let val = parseInt(e.target.value) || 1;
+                        if (val > mockCapital) val = Math.floor(mockCapital);
+                        setStakedCapitals(prev => ({ ...prev, [pred.id]: val }));
+                      }}
+                      className="w-16 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs font-mono text-center text-white"
+                    />
+                  </div>
+                  
+                  <div className="flex justify-between items-center mt-2.5 text-[11px] text-[var(--muted)]">
+                    <span>Potential Payout (+10% Capital):</span>
+                    <span className="font-bold text-green-400 font-mono">
+                      {((stakedCapitals[pred.id] || 10) * 1.10).toFixed(2)} $0G
+                    </span>
+                  </div>
+                </motion.div>
+              )}
               
               <div className="flex items-center justify-between text-xs text-[var(--muted)] mb-4">
                 <span>Updated {pred.lastUpdated}</span>
@@ -1075,12 +1401,40 @@ export default function App() {
                 </span>
               </div>
               
-              <button
-                onClick={() => { setSelectedPrediction(pred); setShowRequestModal(true); }}
-                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-orange)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
-              >
-                Purchase Prediction
-              </button>
+              {selectedOptions[pred.id] ? (
+                <button
+                  onClick={() => {
+                    const stake = stakedCapitals[pred.id] || 10;
+                    if (mockCapital < stake) {
+                      alert("Insufficient capital!");
+                      return;
+                    }
+                    const opt = pred.options?.find(o => o.name === selectedOptions[pred.id]);
+                    if (opt) {
+                      triggerResolutionSimulation(pred, opt.name, opt.chance, stake);
+                    }
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-orange)] text-white text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Trophy className="w-4 h-4" />
+                  Submit Pick &amp; Stake
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    if (pred.options && pred.options.length > 0) {
+                      setSelectedOptions(prev => ({ ...prev, [pred.id]: pred.options![0].name }));
+                      setStakedCapitals(prev => ({ ...prev, [pred.id]: 10 }));
+                    } else {
+                      setSelectedPrediction(pred); 
+                      setShowRequestModal(true);
+                    }
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-white/5 text-[var(--muted)] group-hover:text-white border border-white/5 group-hover:border-[var(--accent)]/30 text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  Select Option to Predict
+                </button>
+              )}
             </motion.div>
           ))}
         </div>
@@ -1524,6 +1878,170 @@ function requestSportsData(
                   )}
                 </>
               )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Premium Prediction Resolution Modal */}
+      <AnimatePresence>
+        {resolvingPrediction && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="glass rounded-2xl p-6 max-w-md w-full relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--accent)]/5 rounded-full blur-2xl animate-pulse" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-[var(--accent-orange)]/5 rounded-full blur-2xl animate-pulse" />
+              
+              <div className="flex items-center justify-between mb-6 relative">
+                <div className="flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-[var(--accent-orange)] animate-pulse" />
+                  <h3 className="text-xl font-bold">0G AI Resolution Node</h3>
+                </div>
+                {resolvingStep === 3 && (
+                  <button
+                    onClick={() => setResolvingPrediction(null)}
+                    className="p-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-6 relative">
+                {/* Current Active Step / Animation */}
+                {resolvingStep < 3 && (
+                  <div className="flex flex-col items-center justify-center py-6 text-center space-y-4">
+                    <div className="relative">
+                      {/* Outer spinning ring */}
+                      <div className="w-16 h-16 rounded-full border-2 border-white/5 border-t-[var(--accent)] animate-spin" />
+                      {/* Inner pulsing dot */}
+                      <div className="absolute inset-2 bg-gradient-to-tr from-[var(--accent)] to-[var(--accent-orange)] rounded-full flex items-center justify-center">
+                        <Lock className="w-6 h-6 text-white animate-pulse" />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">
+                        {resolvingStep === 0 && "Initiating 0G Wallet transaction..."}
+                        {resolvingStep === 1 && "Verifying Data Availability on 0G DA..."}
+                        {resolvingStep === 2 && "Computing AI Inference Resolution Proof..."}
+                      </p>
+                      <p className="text-xs text-[var(--muted)] mt-1">
+                        Please do not close this window.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Outcome Display (Step 3) */}
+                {resolvingStep === 3 && resolutionOutcome && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center space-y-4"
+                  >
+                    <div className="flex justify-center">
+                      <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
+                        resolutionOutcome.isWin 
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                          : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                      }`}>
+                        {resolutionOutcome.isWin ? <Trophy className="w-8 h-8" /> : <X className="w-8 h-8" />}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className={`text-2xl font-bold ${resolutionOutcome.isWin ? 'text-green-400' : 'text-red-400'}`}>
+                        {resolutionOutcome.isWin ? "Prediction Won!" : "Prediction Lost"}
+                      </h4>
+                      <p className="text-xs text-[var(--muted)] mt-1">
+                        Category: {resolvingPrediction.prediction.title}
+                      </p>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-2 text-left">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-[var(--muted)]">Your Pick:</span>
+                        <span className="font-semibold text-white">{resolvingPrediction.optionName}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-[var(--muted)]">Actual Winner:</span>
+                        <span className="font-semibold text-white">{resolutionOutcome.actualWinner}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-[var(--muted)]">Winning Chance:</span>
+                        <span className="font-semibold text-white">{resolvingPrediction.chance}%</span>
+                      </div>
+                      <div className="flex justify-between text-sm border-t border-white/5 pt-2 mt-2">
+                        <span className="text-[var(--muted)]">Capital staked:</span>
+                        <span className="font-mono text-white">{resolvingPrediction.stake.toFixed(2)} $0G</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-[var(--muted)]">Net Payout:</span>
+                        <span className={`font-mono font-bold ${resolutionOutcome.payout >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {resolutionOutcome.payout >= 0 ? `+${resolutionOutcome.payout.toFixed(2)}` : resolutionOutcome.payout.toFixed(2)} $0G
+                        </span>
+                      </div>
+                    </div>
+
+                    {resolutionOutcome.isWin ? (
+                      <p className="text-xs text-green-400/90 bg-green-500/10 border border-green-500/20 p-2.5 rounded-lg">
+                        Payout completed: 10% profit of staked capital successfully credited to your balance!
+                      </p>
+                    ) : (
+                      <p className="text-xs text-red-400/90 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg">
+                        Better luck next time. Staked capital deducted from balance.
+                      </p>
+                    )}
+
+                    <button
+                      onClick={() => setResolvingPrediction(null)}
+                      className="w-full py-3 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-orange)] text-white font-medium hover:opacity-90 transition-opacity cursor-pointer text-sm"
+                    >
+                      Close Node Resolution
+                    </button>
+                  </motion.div>
+                )}
+
+                {/* Progress bar steps */}
+                <div className="border-t border-white/5 pt-4 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[var(--muted)] flex items-center gap-1.5">
+                      <span className={`w-1.5 h-1.5 rounded-full ${resolvingStep >= 0 ? 'bg-[var(--accent)]' : 'bg-white/20'}`} />
+                      Wallet Request approval
+                    </span>
+                    <span className="font-mono text-[var(--muted)]">
+                      {resolvingStep > 0 ? "Confirmed" : resolvingStep === 0 ? "Pending..." : "Waiting"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[var(--muted)] flex items-center gap-1.5">
+                      <span className={`w-1.5 h-1.5 rounded-full ${resolvingStep >= 1 ? 'bg-[var(--accent)]' : 'bg-white/20'}`} />
+                      Publishing to 0G DA Layer
+                    </span>
+                    <span className="font-mono text-[var(--muted)]">
+                      {resolvingStep > 1 ? "Confirmed" : resolvingStep === 1 ? "Pending..." : "Waiting"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[var(--muted)] flex items-center gap-1.5">
+                      <span className={`w-1.5 h-1.5 rounded-full ${resolvingStep >= 2 ? 'bg-[var(--accent)]' : 'bg-white/20'}`} />
+                      Computing 0G AI Node Proof
+                    </span>
+                    <span className="font-mono text-[var(--muted)]">
+                      {resolvingStep > 2 ? "Confirmed" : resolvingStep === 2 ? "Pending..." : "Waiting"}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}
