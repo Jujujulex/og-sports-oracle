@@ -4,6 +4,13 @@ import { parseEther } from 'viem';
 import { useWallet } from './config/useWallet';
 import NETWORK_CONFIG from './config/network';
 import {
+  fetchMatches,
+  fetchAnalysis,
+  FALLBACK_MATCHES,
+  type Match,
+  type Analysis,
+} from './config/sportsApi';
+import {
   Trophy, Zap, TrendingUp, Users, Clock, ChevronRight, ChevronDown,
   Globe, Wallet, Bell, Moon, Sun, Menu, X, ExternalLink, Copy,
   Check, ArrowUpRight, ArrowDownRight, Star, Play, Calendar,
@@ -11,21 +18,7 @@ import {
   Activity, RefreshCw, Download, Filter, Search, MoreHorizontal
 } from 'lucide-react';
 
-// Types
-interface Match {
-  id: string;
-  sport: string;
-  league: string;
-  homeTeam: string;
-  awayTeam: string;
-  homeScore?: number;
-  awayScore?: number;
-  status: 'live' | 'upcoming' | 'finished';
-  time?: string;
-  date: string;
-  odds?: { home: number; draw: number; away: number };
-}
-
+// Types (Match/Analysis live in ./config/sportsApi)
 interface Prediction {
   id: string;
   title: string;
@@ -59,20 +52,6 @@ interface RequestHistory {
 }
 
 // Mock Data
-const liveMatches: Match[] = [
-  { id: '1', sport: 'football', league: 'Premier League', homeTeam: 'Arsenal', awayTeam: 'Chelsea', homeScore: 2, awayScore: 1, status: 'live', time: '67\'', date: 'Today', odds: { home: 1.45, draw: 4.20, away: 6.50 } },
-  { id: '2', sport: 'football', league: 'La Liga', homeTeam: 'Real Madrid', awayTeam: 'Barcelona', status: 'upcoming', date: 'Tomorrow 21:00', odds: { home: 2.10, draw: 3.40, away: 3.20 } },
-  { id: '3', sport: 'basketball', league: 'NBA', homeTeam: 'Lakers', awayTeam: 'Celtics', homeScore: 98, awayScore: 102, status: 'live', time: 'Q4 5:32', date: 'Today' },
-  { id: '4', sport: 'football', league: 'FIFA World Cup', homeTeam: 'Argentina', awayTeam: 'France', status: 'upcoming', date: 'Dec 18 18:00', odds: { home: 2.85, draw: 3.10, away: 2.60 } },
-  { id: '5', sport: 'american-football', league: 'NFL', homeTeam: 'Chiefs', awayTeam: '49ers', status: 'upcoming', date: 'Sunday 20:00' },
-];
-
-const upcomingMatches: Match[] = [
-  { id: '6', sport: 'football', league: 'Premier League', homeTeam: 'Man City', awayTeam: 'Liverpool', status: 'upcoming', date: 'Sat 17:30', odds: { home: 1.75, draw: 3.80, away: 4.50 } },
-  { id: '7', sport: 'football', league: 'La Liga', homeTeam: 'Atletico Madrid', awayTeam: 'Sevilla', status: 'upcoming', date: 'Sun 21:00', odds: { home: 1.55, draw: 4.00, away: 5.80 } },
-  { id: '8', sport: 'basketball', league: 'NBA', homeTeam: 'Warriors', awayTeam: 'Nets', status: 'upcoming', date: 'Mon 19:00' },
-];
-
 const freePredictions: Prediction[] = [
   { id: 'p1', title: 'World Cup Quarterfinalists', description: 'Predicted teams advancing to quarter-finals', confidence: 78, price: '0', category: 'FIFA World Cup', isFree: true, reasoning: 'Based on group stage performance and historical data', lastUpdated: '2 hours ago' },
   { id: 'p2', title: 'Premier League Top 4', description: 'Likely Champions League qualifiers', confidence: 85, price: '0', category: 'Premier League', isFree: true, lastUpdated: '1 hour ago' },
@@ -123,6 +102,17 @@ export default function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [copied, setCopied] = useState(false);
   const [dataRequestKind, setDataRequestKind] = useState('Match Result');
+
+  // Live sports data
+  const [matches, setMatches] = useState<Match[]>(FALLBACK_MATCHES);
+  const [matchesLoading, setMatchesLoading] = useState(true);
+  const [dataSource, setDataSource] = useState<'live' | 'fallback'>('fallback');
+
+  // AI analysis modal
+  const [analysisMatch, setAnalysisMatch] = useState<Match | null>(null);
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState('');
   const [txStatus, setTxStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
   const [txHash, setTxHash] = useState('');
   const [txError, setTxError] = useState('');
@@ -136,6 +126,35 @@ export default function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   }, [isDark]);
+
+  const loadMatches = async () => {
+    setMatchesLoading(true);
+    const { matches: data, source } = await fetchMatches();
+    setMatches(data);
+    setDataSource(source);
+    setMatchesLoading(false);
+  };
+
+  // Load real fixtures on mount, then refresh every 60s for live scores.
+  useEffect(() => {
+    loadMatches();
+    const interval = setInterval(loadMatches, 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const openAnalysis = async (match: Match) => {
+    setAnalysisMatch(match);
+    setAnalysis(null);
+    setAnalysisError('');
+    setAnalysisLoading(true);
+    try {
+      setAnalysis(await fetchAnalysis(match));
+    } catch (err: any) {
+      setAnalysisError(err?.message ?? 'Could not generate analysis.');
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
 
   const scrollToSection = (sectionId: string) => {
     const refs: Record<string, React.RefObject<HTMLDivElement | null>> = {
@@ -198,9 +217,9 @@ export default function App() {
     }
   };
 
-  const filteredMatches = activeSport === 'all' 
-    ? [...liveMatches, ...upcomingMatches] 
-    : [...liveMatches, ...upcomingMatches].filter(m => m.sport === activeSport);
+  const filteredMatches = activeSport === 'all'
+    ? matches
+    : matches.filter(m => m.sport === activeSport);
 
   const FormBadge = ({ result }: { result: string }) => (
     <span className={`w-5 h-5 rounded text-xs font-bold flex items-center justify-center ${
@@ -348,18 +367,30 @@ export default function App() {
       {/* Live Ticker */}
       <div className="border-b border-[var(--border)] overflow-hidden bg-[var(--surface)]">
         <div className="animate-ticker flex whitespace-nowrap py-2">
-          {[...liveMatches, ...liveMatches].map((match, i) => (
+          {(() => {
+            const live = matches.filter((m) => m.status === 'live');
+            const ticker = live.length ? live : matches.slice(0, 6);
+            return [...ticker, ...ticker];
+          })().map((match, i) => (
             <div key={`${match.id}-${i}`} className="flex items-center gap-4 px-6">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                <span className="text-xs text-[var(--muted)]">LIVE</span>
-              </span>
+              {match.status === 'live' && (
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                  <span className="text-xs text-[var(--muted)]">LIVE</span>
+                </span>
+              )}
               <span className="text-sm font-medium">{match.homeTeam}</span>
-              <span className="text-sm font-bold text-[var(--accent)]">
-                {match.homeScore ?? 0} - {match.awayScore ?? 0}
-              </span>
+              {match.status === 'live' || match.status === 'finished' ? (
+                <span className="text-sm font-bold text-[var(--accent)]">
+                  {match.homeScore ?? 0} - {match.awayScore ?? 0}
+                </span>
+              ) : (
+                <span className="text-xs text-[var(--muted)]">vs</span>
+              )}
               <span className="text-sm font-medium">{match.awayTeam}</span>
-              <span className="text-xs text-[var(--muted)]">{match.time}</span>
+              <span className="text-xs text-[var(--muted)]">
+                {match.status === 'live' ? match.time : match.date}
+              </span>
               <span className="text-xs px-2 py-0.5 rounded bg-white/5">{match.league}</span>
             </div>
           ))}
@@ -460,15 +491,44 @@ export default function App() {
       {/* Live & Upcoming Matches - Feeds Section */}
       <section ref={feedsRef} id="feeds" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold">Live & Upcoming</h2>
-          <button 
-            onClick={() => scrollToSection('feeds')}
-            className="flex items-center gap-2 text-sm text-[var(--accent)] hover:underline"
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold">Live & Upcoming</h2>
+            <span
+              className={`text-xs px-2 py-1 rounded-lg ${
+                dataSource === 'live'
+                  ? 'bg-green-500/10 text-green-400'
+                  : 'bg-yellow-500/10 text-yellow-400'
+              }`}
+              title={
+                dataSource === 'live'
+                  ? 'Real fixtures from football-data.org'
+                  : 'Live API unavailable — showing demo data'
+              }
+            >
+              {dataSource === 'live' ? '● Live data' : '● Demo data'}
+            </span>
+          </div>
+          <button
+            onClick={loadMatches}
+            disabled={matchesLoading}
+            className="flex items-center gap-2 text-sm text-[var(--accent)] hover:underline disabled:opacity-50"
           >
-            View All <ChevronRight className="w-4 h-4" />
+            <RefreshCw className={`w-4 h-4 ${matchesLoading ? 'animate-spin' : ''}`} />
+            Refresh
           </button>
         </div>
 
+        {matchesLoading && filteredMatches.length === 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[0, 1, 2, 3, 4, 5].map((n) => (
+              <div key={n} className="glass rounded-2xl p-5 h-44 animate-pulse bg-white/5" />
+            ))}
+          </div>
+        ) : filteredMatches.length === 0 ? (
+          <div className="glass rounded-2xl p-10 text-center text-[var(--muted)]">
+            No {activeSport === 'all' ? '' : activeSport + ' '}matches scheduled in the next 7 days.
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredMatches.slice(0, 6).map((match, i) => (
             <motion.div
@@ -533,15 +593,24 @@ export default function App() {
                 </div>
               )}
 
-              <button
-                onClick={() => { setRequestType('match'); setShowRequestModal(true); }}
-                className="w-full py-2 rounded-lg bg-[var(--accent)]/10 text-[var(--accent)] text-sm font-medium hover:bg-[var(--accent)]/20 transition-colors"
-              >
-                Request Full Data - 0.01 $0G
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => openAnalysis(match)}
+                  className="py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:bg-[var(--accent)]/90 transition-colors flex items-center justify-center gap-1"
+                >
+                  <Activity className="w-4 h-4" /> AI Analysis
+                </button>
+                <button
+                  onClick={() => { setRequestType('match'); setShowRequestModal(true); }}
+                  className="py-2 rounded-lg bg-[var(--accent)]/10 text-[var(--accent)] text-sm font-medium hover:bg-[var(--accent)]/20 transition-colors"
+                >
+                  Full Data
+                </button>
+              </div>
             </motion.div>
           ))}
         </div>
+        )}
       </section>
 
       {/* Free Insights */}
@@ -1075,6 +1144,95 @@ function requestSportsData(
                   )}
                 </>
               )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* AI Analysis Modal */}
+      <AnimatePresence>
+        {analysisMatch && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setAnalysisMatch(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="glass rounded-2xl p-6 max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-[var(--accent)]" />
+                  <h3 className="text-xl font-bold">AI Match Analysis</h3>
+                </div>
+                <button
+                  onClick={() => setAnalysisMatch(null)}
+                  className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-sm text-[var(--muted)] mb-5">
+                {analysisMatch.homeTeam} vs {analysisMatch.awayTeam} · {analysisMatch.league}
+              </p>
+
+              {analysisLoading ? (
+                <div className="py-10 text-center text-[var(--muted)]">
+                  <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3 text-[var(--accent)]" />
+                  Crunching the numbers...
+                </div>
+              ) : analysisError ? (
+                <p className="text-sm text-red-400 py-6 text-center">{analysisError}</p>
+              ) : analysis ? (
+                <div className="space-y-5">
+                  {/* Win probability bars */}
+                  <div className="space-y-2">
+                    {[
+                      { label: analysisMatch.homeTeam, value: analysis.home, color: 'var(--accent)' },
+                      { label: 'Draw', value: analysis.draw, color: 'var(--muted)' },
+                      { label: analysisMatch.awayTeam, value: analysis.away, color: 'var(--accent-orange)' },
+                    ].map((row) => (
+                      <div key={row.label}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>{row.label}</span>
+                          <span className="font-bold">{row.value}%</span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${row.value}%`, background: row.color }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-[var(--accent)]/10">
+                    <p className="text-xs text-[var(--muted)] mb-1">Predicted outcome</p>
+                    <p className="font-bold text-[var(--accent)]">
+                      {analysis.predictedWinner === 'Draw'
+                        ? 'Draw'
+                        : `${analysis.predictedWinner} to win`}{' '}
+                      · {analysis.confidence}% confidence
+                    </p>
+                  </div>
+
+                  <p className="text-sm text-[var(--muted)] leading-relaxed">{analysis.analysis}</p>
+
+                  <p className="text-xs text-[var(--muted)] flex items-center gap-1">
+                    <Shield className="w-3 h-3" />
+                    {analysis.basis === 'league-standings'
+                      ? 'Model based on live league standings, form & home advantage'
+                      : 'Baseline estimate (limited data for this fixture)'}
+                  </p>
+                </div>
+              ) : null}
             </motion.div>
           </motion.div>
         )}
