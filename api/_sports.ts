@@ -1,7 +1,44 @@
-// Shared sports-data logic used by both the Vercel serverless functions
-// (api/matches.ts, api/analysis.ts) and the Vite dev middleware
-// (vite.config.js), so local `npm run dev` behaves exactly like production.
-// Files prefixed with "_" are not treated as routes by Vercel.
+import https from 'https';
+
+// A lightweight fetch fallback using Node's built-in https module for older
+// Node versions that don't have a global fetch (e.g. Node 16 or environment mismatches).
+function nodeFetch(url: string, options: any = {}): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const reqOptions = {
+      hostname: u.hostname,
+      path: u.pathname + u.search,
+      method: options.method || 'GET',
+      headers: options.headers || {},
+    };
+
+    const req = https.request(reqOptions, (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => {
+        resolve({
+          ok: res.statusCode ? res.statusCode >= 200 && res.statusCode < 300 : false,
+          status: res.statusCode,
+          text: async () => data,
+          json: async () => JSON.parse(data),
+        });
+      });
+    });
+
+    req.on('error', (err) => {
+      reject(err);
+    });
+
+    if (options.body) {
+      req.write(options.body);
+    }
+    req.end();
+  });
+}
+
+const safeFetch = typeof fetch !== 'undefined' ? fetch : nodeFetch;
 
 const FD_BASE = 'https://api.football-data.org/v4';
 
@@ -64,7 +101,7 @@ export async function getMatches(key?: string) {
   const weekLater = new Date(today.getTime() + 7 * 86_400_000);
   const url = `${FD_BASE}/matches?dateFrom=${fmtDay(today)}&dateTo=${fmtDay(weekLater)}`;
 
-  const r = await fetch(url, { headers: { 'X-Auth-Token': apiKey } });
+  const r = await safeFetch(url, { headers: { 'X-Auth-Token': apiKey } });
   if (!r.ok) {
     const err: any = new Error(`football-data.org returned ${r.status}`);
     err.status = r.status;
@@ -138,7 +175,7 @@ export async function getAnalysis(key: string | undefined, { competition, homeId
 
   if (!competition || !homeId || !awayId) return neutralAnalysis(home, away);
 
-  const r = await fetch(`${FD_BASE}/competitions/${competition}/standings`, {
+  const r = await safeFetch(`${FD_BASE}/competitions/${competition}/standings`, {
     headers: { 'X-Auth-Token': apiKey },
   });
   if (!r.ok) return neutralAnalysis(home, away);
@@ -203,7 +240,7 @@ export async function getStandings(key?: string) {
     throw err;
   }
 
-  const r = await fetch(`${FD_BASE}/competitions/PL/standings`, {
+  const r = await safeFetch(`${FD_BASE}/competitions/PL/standings`, {
     headers: { 'X-Auth-Token': apiKey },
   });
   if (!r.ok) {

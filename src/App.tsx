@@ -365,6 +365,15 @@ const loadUnlockedMatches = (): Record<string, number> => {
   }
 };
 
+// Map the UI sport to the on-chain sportId registered in the contract
+// (1 = Football, 2 = Basketball, 3 = Tennis). Default to Football.
+const sportToId = (sport?: string): bigint => {
+  const s = sport?.toLowerCase() ?? '';
+  if (s.includes('basketball') || s.includes('nba')) return 2n;
+  if (s.includes('nfl') || s.includes('american-football') || s.includes('tennis')) return 3n;
+  return 1n;
+};
+
 export default function App() {
   const [activeSport, setActiveSport] = useState('all');
   const [isDark, setIsDark] = useState(true);
@@ -434,11 +443,6 @@ export default function App() {
   useEffect(() => {
     if (!resolvingPrediction) return;
     
-    if (resolvingStep === 0) {
-      const timer = setTimeout(() => setResolvingStep(1), 1500);
-      return () => clearTimeout(timer);
-    }
-    
     if (resolvingStep === 1) {
       const timer = setTimeout(() => setResolvingStep(2), 1500);
       return () => clearTimeout(timer);
@@ -499,7 +503,7 @@ export default function App() {
       chance,
       price
     });
-    setResolvingStep(0);
+    setResolvingStep(1); // Starts directly at step 1 since wallet transaction has successfully signed on-chain!
     setResolutionOutcome(null);
   };
 
@@ -614,10 +618,7 @@ export default function App() {
   // The price (in $0G) for whatever the modal is currently requesting.
   const activePrice = selectedPrediction ? selectedPrediction.price : '0.01';
 
-  // Map the UI sport to the on-chain sportId registered in the contract
-  // (1 = Football, 2 = Basketball, 3 = Tennis). Default to Football.
-  const sportToId = (sport?: string): bigint =>
-    sport === 'basketball' ? 2n : sport === 'tennis' ? 3n : 1n;
+
 
   const handleConfirmAndPay = async () => {
     setTxError('');
@@ -789,18 +790,6 @@ export default function App() {
                 </AnimatePresence>
               </div>
 
-              {/* Mock Capital Badge */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-sm font-semibold">
-                <span className="text-[var(--muted)]">Capital:</span>
-                <span className="text-[var(--accent)] font-bold">{mockCapital.toFixed(2)} $0G</span>
-                <button 
-                  onClick={() => setMockCapital(1000.00)} 
-                  className="ml-1 p-1 hover:bg-white/10 rounded text-xs text-[var(--muted)] hover:text-white flex items-center justify-center transition-colors"
-                  title="Reset Capital to 1000 $0G"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                </button>
-              </div>
 
               <button
                 onClick={
@@ -1313,9 +1302,6 @@ export default function App() {
                           key={opt.name}
                           onClick={() => {
                             setSelectedOptions(prev => ({ ...prev, [pred.id]: opt.name }));
-                            if (!stakedCapitals[pred.id]) {
-                              setStakedCapitals(prev => ({ ...prev, [pred.id]: 10 }));
-                            }
                           }}
                           type="button"
                           className={`flex-shrink-0 px-3 py-2 rounded-xl border text-xs transition-all flex flex-col items-center gap-1 cursor-pointer ${
@@ -1338,45 +1324,16 @@ export default function App() {
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
-                  className="mb-4 pt-2 border-t border-white/5 overflow-hidden"
+                  className="mb-4 pt-3 border-t border-white/5 overflow-hidden space-y-2"
                 >
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-xs text-[var(--muted)]">Capital to Stake:</span>
-                    <span className="text-xs font-mono font-bold text-white">
-                      {(stakedCapitals[pred.id] || 10)} $0G
-                    </span>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-[var(--muted)]">Prediction Price:</span>
+                    <span className="text-white font-mono font-bold">{pred.price} $0G</span>
                   </div>
-                  
-                  <div className="flex gap-3 items-center">
-                    <input 
-                      type="range"
-                      min="1"
-                      max={Math.min(mockCapital, 1000)}
-                      value={stakedCapitals[pred.id] || 10}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value);
-                        setStakedCapitals(prev => ({ ...prev, [pred.id]: val }));
-                      }}
-                      className="flex-1 accent-[var(--accent)] h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
-                    />
-                    <input
-                      type="number"
-                      min="1"
-                      max={mockCapital}
-                      value={stakedCapitals[pred.id] || 10}
-                      onChange={(e) => {
-                        let val = parseInt(e.target.value) || 1;
-                        if (val > mockCapital) val = Math.floor(mockCapital);
-                        setStakedCapitals(prev => ({ ...prev, [pred.id]: val }));
-                      }}
-                      className="w-16 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs font-mono text-center text-white"
-                    />
-                  </div>
-                  
-                  <div className="flex justify-between items-center mt-2.5 text-[11px] text-[var(--muted)]">
-                    <span>Potential Payout (+10% Capital):</span>
-                    <span className="font-bold text-green-400 font-mono">
-                      {((stakedCapitals[pred.id] || 10) * 1.10).toFixed(2)} $0G
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-[var(--muted)]">Potential Premium Payout (+10%):</span>
+                    <span className="text-green-400 font-mono font-bold">
+                      {(parseFloat(pred.price) * 1.10).toFixed(3)} $0G
                     </span>
                   </div>
                 </motion.div>
@@ -1391,29 +1348,48 @@ export default function App() {
               </div>
               
               {selectedOptions[pred.id] ? (
-                <button
-                  onClick={() => {
-                    const stake = stakedCapitals[pred.id] || 10;
-                    if (mockCapital < stake) {
-                      alert("Insufficient capital!");
-                      return;
-                    }
-                    const opt = pred.options?.find(o => o.name === selectedOptions[pred.id]);
-                    if (opt) {
-                      triggerResolutionSimulation(pred, opt.name, opt.chance, stake);
-                    }
-                  }}
-                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-orange)] text-white text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Trophy className="w-4 h-4" />
-                  Submit Pick &amp; Stake
-                </button>
+                !connected ? (
+                  <button
+                    onClick={() => connectWallet()}
+                    className="w-full py-2.5 rounded-xl bg-[var(--accent)] text-white text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer border border-transparent"
+                  >
+                    <Wallet className="w-4 h-4" />
+                    Connect Wallet to Purchase
+                  </button>
+                ) : !wallet.isCorrectChain ? (
+                  <button
+                    onClick={() => wallet.switchToOgChain()}
+                    className="w-full py-2.5 rounded-xl bg-yellow-500 text-black text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer border border-transparent"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Switch to 0G Chain
+                  </button>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      const opt = pred.options?.find(o => o.name === selectedOptions[pred.id]);
+                      if (opt) {
+                        try {
+                          const sportId = sportToId(pred.category);
+                          const query = `${pred.title}: ${opt.name}`;
+                          await wallet.requestData(sportId, query, parseEther(pred.price));
+                          triggerResolutionSimulation(pred, opt.name, opt.chance, parseFloat(pred.price));
+                        } catch (err: any) {
+                          alert(err?.shortMessage ?? err?.message ?? 'Transaction rejected or failed.');
+                        }
+                      }
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-orange)] text-white text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Trophy className="w-4 h-4" />
+                    Purchase Pick ({pred.price} $0G)
+                  </button>
+                )
               ) : (
                 <button
                   onClick={() => {
                     if (pred.options && pred.options.length > 0) {
                       setSelectedOptions(prev => ({ ...prev, [pred.id]: pred.options![0].name }));
-                      setStakedCapitals(prev => ({ ...prev, [pred.id]: 10 }));
                     } else {
                       setSelectedPrediction(pred); 
                       setShowRequestModal(true);
@@ -1919,7 +1895,6 @@ function requestSportsData(
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-white">
-                        {resolvingStep === 0 && "Initiating 0G Wallet transaction..."}
                         {resolvingStep === 1 && "Verifying Data Availability on 0G DA..."}
                         {resolvingStep === 2 && "Computing AI Inference Resolution Proof..."}
                       </p>
@@ -1970,24 +1945,24 @@ function requestSportsData(
                         <span className="font-semibold text-white">{resolvingPrediction.chance}%</span>
                       </div>
                       <div className="flex justify-between text-sm border-t border-white/5 pt-2 mt-2">
-                        <span className="text-[var(--muted)]">Capital staked:</span>
-                        <span className="font-mono text-white">{resolvingPrediction.stake.toFixed(2)} $0G</span>
+                        <span className="text-[var(--muted)]">Cost paid:</span>
+                        <span className="font-mono text-white">{resolvingPrediction.price.toFixed(3)} $0G</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-[var(--muted)]">Net Payout:</span>
                         <span className={`font-mono font-bold ${resolutionOutcome.payout >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {resolutionOutcome.payout >= 0 ? `+${resolutionOutcome.payout.toFixed(2)}` : resolutionOutcome.payout.toFixed(2)} $0G
+                          {resolutionOutcome.payout >= 0 ? `+${resolutionOutcome.payout.toFixed(3)}` : resolutionOutcome.payout.toFixed(3)} $0G
                         </span>
                       </div>
                     </div>
 
                     {resolutionOutcome.isWin ? (
-                      <p className="text-xs text-green-400/90 bg-green-500/10 border border-green-500/20 p-2.5 rounded-lg">
-                        Payout completed: 10% profit of staked capital successfully credited to your balance!
+                      <p className="text-xs text-green-400/90 bg-green-500/10 border border-green-500/20 p-2.5 rounded-lg text-center">
+                        Prediction Successful! Net profit of 10% ({resolutionOutcome.payout.toFixed(3)} $0G) credited back.
                       </p>
                     ) : (
-                      <p className="text-xs text-red-400/90 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg">
-                        Better luck next time. Staked capital deducted from balance.
+                      <p className="text-xs text-red-400/90 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center">
+                        Better luck next time. Prediction cost deducted from balance.
                       </p>
                     )}
 
@@ -1995,7 +1970,7 @@ function requestSportsData(
                       onClick={() => setResolvingPrediction(null)}
                       className="w-full py-3 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-orange)] text-white font-medium hover:opacity-90 transition-opacity cursor-pointer text-sm"
                     >
-                      Close Node Resolution
+                      Close
                     </button>
                   </motion.div>
                 )}
