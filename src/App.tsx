@@ -307,9 +307,7 @@ export default function App() {
   // Live sports data
   const [matches, setMatches] = useState<Match[]>(FALLBACK_MATCHES);
   const [matchesLoading, setMatchesLoading] = useState(true);
-  const [dataSource, setDataSource] = useState<'live' | 'fallback'>('fallback');
   const [standings, setStandings] = useState<Standing[]>(FALLBACK_STANDINGS);
-  const [standingsSource, setStandingsSource] = useState<'live' | 'fallback'>('fallback');
 
   // Generate dynamic free insights based on match feed
   const freePredictions = generateFreeInsights(matches);
@@ -354,16 +352,14 @@ export default function App() {
 
   const loadMatches = async () => {
     setMatchesLoading(true);
-    const { matches: data, source } = await fetchMatches();
+    const { matches: data } = await fetchMatches();
     setMatches(data);
-    setDataSource(source);
     setMatchesLoading(false);
   };
 
   const loadStandings = async () => {
-    const { standings: data, source } = await fetchStandings();
+    const { standings: data } = await fetchStandings();
     setStandings(data);
-    setStandingsSource(source);
   };
 
   // Load real fixtures & standings on mount, then refresh every 60s for live scores.
@@ -799,20 +795,6 @@ export default function App() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-bold">Live & Upcoming</h2>
-            <span
-              className={`text-xs px-2 py-1 rounded-lg ${
-                dataSource === 'live'
-                  ? 'bg-green-500/10 text-green-400'
-                  : 'bg-yellow-500/10 text-yellow-400'
-              }`}
-              title={
-                dataSource === 'live'
-                  ? 'Real fixtures from football-data.org'
-                  : 'Live API unavailable — set FOOTBALL_DATA_KEY in your Vercel env (or run via `vercel dev`)'
-              }
-            >
-              {dataSource === 'live' ? '● Live data' : '● Demo data'}
-            </span>
           </div>
           <button
             onClick={loadMatches}
@@ -977,20 +959,6 @@ export default function App() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-bold">Premier League Standings</h2>
-            <span
-              className={`text-xs px-2 py-1 rounded-lg ${
-                standingsSource === 'live'
-                  ? 'bg-green-500/10 text-green-400'
-                  : 'bg-yellow-500/10 text-yellow-400'
-              }`}
-              title={
-                standingsSource === 'live'
-                  ? 'Real standings from football-data.org'
-                  : 'Live API unavailable — showing demo standings'
-              }
-            >
-              {standingsSource === 'live' ? '● Live data' : '● Demo data'}
-            </span>
           </div>
           <button 
             onClick={() => scrollToSection('feeds')}
