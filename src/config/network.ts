@@ -2,17 +2,17 @@
 // Testnet configuration for 0G Sports Oracle
 
 export const NETWORK_CONFIG = {
-  // 0G Testnet
+  // 0G Galileo Testnet
   testnet: {
-    chainId: 16600,
-    chainName: '0G Testnet',
+    chainId: 16602,
+    chainName: '0G Galileo Testnet',
     nativeCurrency: {
       name: '0G',
       symbol: '0G',
       decimals: 18
     },
-    rpcUrls: ['https://rpc-testnet.0g.ai'],
-    blockExplorerUrls: ['https://explorer-testnet.0g.ai'],
+    rpcUrls: ['https://evmrpc-testnet.0g.ai'],
+    blockExplorerUrls: ['https://chainscan-galileo.0g.ai'],
     faucet: 'https://faucet.0g.ai'
   },
   
