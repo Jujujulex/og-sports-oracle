@@ -99,6 +99,7 @@ export default function App() {
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedPrediction, setSelectedPrediction] = useState<Prediction | null>(null);
   const [requestType, setRequestType] = useState<'match' | 'player' | 'team' | null>(null);
+  const [requestMatch, setRequestMatch] = useState<Match | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [copied, setCopied] = useState(false);
   const [dataRequestKind, setDataRequestKind] = useState('Match Result');
@@ -190,6 +191,7 @@ export default function App() {
     setShowRequestModal(false);
     setSelectedPrediction(null);
     setRequestType(null);
+    setRequestMatch(null);
     setTxStatus('idle');
     setTxHash('');
     setTxError('');
@@ -198,12 +200,20 @@ export default function App() {
   // The price (in $0G) for whatever the modal is currently requesting.
   const activePrice = selectedPrediction ? selectedPrediction.price : '0.01';
 
+  // Map the UI sport to the on-chain sportId registered in the contract
+  // (1 = Football, 2 = Basketball, 3 = Tennis). Default to Football.
+  const sportToId = (sport?: string): bigint =>
+    sport === 'basketball' ? 2n : sport === 'tennis' ? 3n : 1n;
+
   const handleConfirmAndPay = async () => {
     setTxError('');
     setTxStatus('pending');
     try {
-      const recipient = NETWORK_CONFIG.contracts.sportsOracle;
-      const hash = await wallet.sendPayment(recipient, parseEther(activePrice));
+      const sportId = sportToId(requestMatch?.sport);
+      const queryType = selectedPrediction
+        ? selectedPrediction.title
+        : `${dataRequestKind}: ${requestMatch?.homeTeam ?? ''} vs ${requestMatch?.awayTeam ?? ''}`.trim();
+      const hash = await wallet.requestData(sportId, queryType, parseEther(activePrice));
       setTxHash(hash);
       setTxStatus('success');
     } catch (err: any) {
@@ -211,7 +221,7 @@ export default function App() {
       setTxError(
         err?.code === 4001
           ? 'Transaction rejected in wallet.'
-          : err?.message ?? 'Transaction failed.'
+          : err?.shortMessage ?? err?.message ?? 'Transaction failed.'
       );
       setTxStatus('error');
     }
@@ -502,7 +512,7 @@ export default function App() {
               title={
                 dataSource === 'live'
                   ? 'Real fixtures from football-data.org'
-                  : 'Live API unavailable — showing demo data'
+                  : 'Live API unavailable — set FOOTBALL_DATA_KEY in your Vercel env (or run via `vercel dev`)'
               }
             >
               {dataSource === 'live' ? '● Live data' : '● Demo data'}
@@ -601,7 +611,7 @@ export default function App() {
                   <Activity className="w-4 h-4" /> AI Analysis
                 </button>
                 <button
-                  onClick={() => { setRequestType('match'); setShowRequestModal(true); }}
+                  onClick={() => { setRequestMatch(match); setRequestType('match'); setShowRequestModal(true); }}
                   className="py-2 rounded-lg bg-[var(--accent)]/10 text-[var(--accent)] text-sm font-medium hover:bg-[var(--accent)]/20 transition-colors"
                 >
                   Full Data
@@ -1081,41 +1091,91 @@ function requestSportsData(
                       </div>
                       
                       <div className="p-4 rounded-xl bg-white/5">
-                        <label className="text-sm text-[var(--muted)] mb-2 block">Select Match</label>
-                        <select className="w-full bg-transparent border border-[var(--border)] rounded-lg px-3 py-2">
-                          <option>Arsenal vs Chelsea</option>
-                          <option>Real Madrid vs Barcelona</option>
-                          <option>Lakers vs Celtics</option>
-                        </select>
+                        <label className="text-sm text-[var(--muted)] mb-2 block">Match</label>
+                        {requestMatch ? (
+                          <div>
+                            <p className="font-semibold">
+                              {requestMatch.homeTeam} vs {requestMatch.awayTeam}
+                            </p>
+                            <p className="text-xs text-[var(--muted)] mt-1">
+                              {requestMatch.league} · {requestMatch.status === 'live'
+                                ? `LIVE ${requestMatch.homeScore ?? 0}-${requestMatch.awayScore ?? 0}`
+                                : requestMatch.date}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-[var(--muted)]">
+                            Select a match from the Live &amp; Upcoming feed.
+                          </p>
+                        )}
                       </div>
-                      
+
                       <div className="flex items-center justify-between p-4 rounded-xl bg-[var(--accent)]/10">
                         <span className="text-sm">Estimated Cost</span>
-                        <span className="font-bold text-[var(--accent)]">0.01 $0G</span>
+                        <span className="font-bold text-[var(--accent)]">{activePrice} $0G</span>
                       </div>
                     </div>
                   )}
 
                   {txStatus === 'success' ? (
-                    <div className="mt-6 text-center space-y-3">
+                    <div className="mt-6 space-y-3">
                       <div className="flex items-center justify-center gap-2 text-[var(--accent)]">
                         <Check className="w-5 h-5" />
                         <span className="font-medium">Payment confirmed on 0G</span>
                       </div>
+
+                      {/* The data they just unlocked */}
+                      {requestMatch ? (
+                        <div className="p-4 rounded-xl bg-white/5 text-left">
+                          <p className="text-xs text-[var(--muted)] mb-1">{requestMatch.league}</p>
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold">{requestMatch.homeTeam}</span>
+                            <span className="font-bold text-[var(--accent)]">
+                              {requestMatch.status === 'upcoming'
+                                ? 'vs'
+                                : `${requestMatch.homeScore ?? 0} - ${requestMatch.awayScore ?? 0}`}
+                            </span>
+                            <span className="font-semibold">{requestMatch.awayTeam}</span>
+                          </div>
+                          <p className="text-xs text-[var(--muted)] mt-2">
+                            {requestMatch.status === 'live'
+                              ? `Live${requestMatch.time ? ' · ' + requestMatch.time : ''}`
+                              : requestMatch.status === 'finished'
+                              ? 'Full time'
+                              : `Kickoff: ${requestMatch.date}`}
+                          </p>
+                        </div>
+                      ) : selectedPrediction?.reasoning ? (
+                        <div className="p-4 rounded-xl bg-white/5 text-left">
+                          <p className="text-xs text-[var(--muted)] mb-1">Reasoning</p>
+                          <p className="text-sm">{selectedPrediction.reasoning}</p>
+                        </div>
+                      ) : null}
+
                       <a
                         href={`${NETWORK_CONFIG.testnet.blockExplorerUrls[0]}/tx/${txHash}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-sm text-[var(--muted)] hover:text-[var(--accent)] underline break-all"
+                        className="flex items-center justify-center gap-1 text-sm text-[var(--muted)] hover:text-[var(--accent)] underline break-all"
                       >
                         View transaction <ExternalLink className="w-3 h-3" />
                       </a>
-                      <button
-                        onClick={closeRequestModal}
-                        className="w-full py-3 rounded-xl bg-[var(--accent)] text-white font-medium hover:bg-[var(--accent)]/90 transition-colors"
-                      >
-                        Done
-                      </button>
+                      <div className="flex gap-3">
+                        {requestMatch && (
+                          <button
+                            onClick={() => { const m = requestMatch; closeRequestModal(); openAnalysis(m); }}
+                            className="flex-1 py-3 rounded-xl border border-[var(--border)] hover:bg-white/5 transition-colors flex items-center justify-center gap-1"
+                          >
+                            <Activity className="w-4 h-4" /> AI Analysis
+                          </button>
+                        )}
+                        <button
+                          onClick={closeRequestModal}
+                          className="flex-1 py-3 rounded-xl bg-[var(--accent)] text-white font-medium hover:bg-[var(--accent)]/90 transition-colors"
+                        >
+                          Done
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <>

@@ -58,20 +58,18 @@ export default async function handler(req: any, res: any) {
     string
   >;
 
-  // Neutral fallback when we can't look up a real league table (e.g. cup ties).
+  // Neutral fallback when there's no league table (cup ties / World Cup
+  // knockouts have no standings and are played at neutral venues).
   const neutral = () => {
-    const total = 1 + HOME_ADVANTAGE + DRAW_BIAS;
-    const pHome = (1 + HOME_ADVANTAGE) / total;
     const result = {
-      home: pct(pHome * (1 - DRAW_BIAS / total)),
-      draw: pct(DRAW_BIAS / total),
-      away: pct((1 / total) * (1 - DRAW_BIAS / total)),
-      predictedWinner: home,
-      confidence: 0,
-      analysis: `No league-table data is available for this fixture, so this is a baseline estimate that only accounts for home advantage. ${home} are modest favourites at home against ${away}.`,
-      basis: 'home-advantage-only',
+      home: 38,
+      draw: 24,
+      away: 38,
+      predictedWinner: 'Too close to call',
+      confidence: 38,
+      analysis: `${home} vs ${away} is a knockout/cup-style fixture with no league table to draw on, so this is an evenly-matched baseline estimate. Form on the day will decide it.`,
+      basis: 'no-standings',
     };
-    result.confidence = Math.max(result.home, result.draw, result.away);
     res.status(200).json(result);
   };
 

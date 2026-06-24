@@ -74,7 +74,10 @@ export default async function handler(req: any, res: any) {
     }
 
     const data = await r.json();
-    const matches = ((data.matches as any[]) || []).map(normalize);
+    const matches = ((data.matches as any[]) || [])
+      // Drop fixtures whose teams aren't decided yet (e.g. future knockout slots).
+      .filter((m) => m.homeTeam?.name && m.awayTeam?.name)
+      .map(normalize);
 
     // Live first, then soonest kickoff.
     const rank = { live: 0, upcoming: 1, finished: 2 } as const;
