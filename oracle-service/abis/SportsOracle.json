@@ -1,0 +1,192 @@
+[
+  {
+    "inputs": [
+      { "name": "_treasury", "type": "address" },
+      { "name": "_storageContract", "type": "address" }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [{ "name": "sportId", "type": "uint256" }],
+    "name": "getPrice",
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "name": "matchId", "type": "uint256" }],
+    "name": "getMatch",
+    "outputs": [
+      { "name": "id", "type": "uint256" },
+      { "name": "sportId", "type": "uint256" },
+      { "name": "homeTeam", "type": "string" },
+      { "name": "awayTeam", "type": "string" },
+      { "name": "homeScore", "type": "uint256" },
+      { "name": "awayScore", "type": "uint256" },
+      { "name": "timestamp", "type": "uint256" },
+      { "name": "status", "type": "uint8" },
+      { "name": "league", "type": "string" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "name": "predictionId", "type": "uint256" }],
+    "name": "getPrediction",
+    "outputs": [
+      { "name": "id", "type": "uint256" },
+      { "name": "sportId", "type": "uint256" },
+      { "name": "title", "type": "string" },
+      { "name": "description", "type": "string" },
+      { "name": "confidence", "type": "uint256" },
+      { "name": "price", "type": "uint256" },
+      { "name": "reasoningHash", "type": "string" },
+      { "name": "timestamp", "type": "uint256" },
+      { "name": "active", "type": "bool" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "name": "user", "type": "address" }],
+    "name": "getUserRequests",
+    "outputs": [{ "name": "", "type": "uint256[]" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "name": "sportId", "type": "uint256" },
+      { "name": "queryType", "type": "string" }
+    ],
+    "name": "requestSportsData",
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "name": "matchId", "type": "uint256" },
+      { "name": "status", "type": "uint8" },
+      { "name": "homeScore", "type": "uint256" },
+      { "name": "awayScore", "type": "uint256" }
+    ],
+    "name": "updateMatchResult",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "name": "sportId", "type": "uint256" },
+      { "name": "title", "type": "string" },
+      { "name": "description", "type": "string" },
+      { "name": "confidence", "type": "uint256" },
+      { "name": "price", "type": "uint256" },
+      { "name": "reasoningHash", "type": "string" }
+    ],
+    "name": "createPrediction",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "name": "predictionId", "type": "uint256" },
+      { "name": "confidence", "type": "uint256" },
+      { "name": "reasoningHash", "type": "string" }
+    ],
+    "name": "updatePrediction",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "name": "requestId", "type": "uint256" },
+      { "name": "responseData", "type": "string" }
+    ],
+    "name": "fulfillRequest",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "name": "name", "type": "string" },
+      { "name": "basePrice", "type": "uint256" }
+    ],
+    "name": "addSport",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "name": "sportId", "type": "uint256" },
+      { "name": "homeTeam", "type": "string" },
+      { "name": "awayTeam", "type": "string" },
+      { "name": "timestamp", "type": "uint256" },
+      { "name": "league", "type": "string" }
+    ],
+    "name": "addMatch",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "requestId", "type": "uint256" },
+      { "indexed": true, "name": "requester", "type": "address" },
+      { "indexed": false, "name": "sportId", "type": "uint256" },
+      { "indexed": false, "name": "queryType", "type": "string" },
+      { "indexed": false, "name": "payment", "type": "uint256" }
+    ],
+    "name": "DataRequested",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "requestId", "type": "uint256" },
+      { "indexed": false, "name": "responseData", "type": "string" }
+    ],
+    "name": "DataFulfilled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "matchId", "type": "uint256" },
+      { "indexed": true, "name": "sportId", "type": "uint256" },
+      { "indexed": false, "name": "homeTeam", "type": "string" },
+      { "indexed": false, "name": "awayTeam", "type": "string" }
+    ],
+    "name": "MatchAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "matchId", "type": "uint256" },
+      { "indexed": false, "name": "status", "type": "uint8" },
+      { "indexed": false, "name": "homeScore", "type": "uint256" },
+      { "indexed": false, "name": "awayScore", "type": "uint256" }
+    ],
+    "name": "MatchUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "predictionId", "type": "uint256" },
+      { "indexed": true, "name": "sportId", "type": "uint256" },
+      { "indexed": false, "name": "title", "type": "string" },
+      { "indexed": false, "name": "price", "type": "uint256" }
+    ],
+    "name": "PredictionCreated",
+    "type": "event"
+  }
+]

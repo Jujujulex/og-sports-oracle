@@ -1,0 +1,41 @@
+// 0G Network Configuration
+// Testnet configuration for 0G Sports Oracle
+
+export const NETWORK_CONFIG = {
+  // 0G Testnet
+  testnet: {
+    chainId: 16600,
+    chainName: '0G Testnet',
+    nativeCurrency: {
+      name: '0G',
+      symbol: '0G',
+      decimals: 18
+    },
+    rpcUrls: ['https://rpc-testnet.0g.ai'],
+    blockExplorerUrls: ['https://explorer-testnet.0g.ai'],
+    faucet: 'https://faucet.0g.ai'
+  },
+  
+  // Contract addresses (update after deployment)
+  contracts: {
+    sportsOracle: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+    storage: '0x0000000000000000000000000000000000000000' as `0x${string}`
+  },
+  
+  // API endpoints
+  api: {
+    oracle: 'https://oracle-api-testnet.0g.ai',
+    storage: 'https://storage-testnet.0g.ai'
+  }
+};
+
+// Pricing in $0G (wei)
+export const PRICING = {
+  matchResult: BigInt('10000000000000000'), // 0.01 $0G
+  playerStats: BigInt('20000000000000000'), // 0.02 $0G
+  teamForm: BigInt('15000000000000000'),    // 0.015 $0G
+  predictionBasic: BigInt('30000000000000000'), // 0.03 $0G
+  predictionPremium: BigInt('80000000000000000') // 0.08 $0G
+};
+
+export default NETWORK_CONFIG;
