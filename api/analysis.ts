@@ -4,7 +4,7 @@
  * Free statistical match prediction derived from the live league table.
  * Logic is shared with the Vite dev middleware via ./_sports.js.
  */
-import { getAnalysis } from './_sports.js';
+import { getAnalysis } from './_sports';
 
 export default async function handler(req: any, res: any) {
   try {

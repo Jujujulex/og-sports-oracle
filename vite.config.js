@@ -1,7 +1,7 @@
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, loadEnv } from 'vite';
-import { getMatches, getAnalysis, getStandings } from './api/_sports.js';
+import { getMatches, getAnalysis, getStandings } from './api/_sports';
 
 // Dev-only middleware that mirrors the Vercel serverless functions, so
 // `npm run dev` serves real data from /api/* just like production (Vite
