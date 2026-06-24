@@ -414,20 +414,15 @@ export default function App() {
   const [txHash, setTxHash] = useState('');
   const [txError, setTxError] = useState('');
 
-  // Premium predictions selection & staking states
-  const [mockCapital, setMockCapital] = useState<number>(() => {
-    const stored = localStorage.getItem('og_sports_mock_capital');
-    return stored ? parseFloat(stored) : 1000.00;
-  });
+  // Premium predictions selection states (no capital/stakes)
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
-  const [stakedCapitals, setStakedCapitals] = useState<Record<string, number>>({});
   
   // Resolution simulation states
   const [resolvingPrediction, setResolvingPrediction] = useState<{
     prediction: Prediction;
     optionName: string;
     chance: number;
-    stake: number;
+    price: number;
   } | null>(null);
   const [resolvingStep, setResolvingStep] = useState<number>(0);
   const [resolutionOutcome, setResolutionOutcome] = useState<{
@@ -435,10 +430,6 @@ export default function App() {
     actualWinner: string;
     payout: number;
   } | null>(null);
-
-  useEffect(() => {
-    localStorage.setItem('og_sports_mock_capital', mockCapital.toFixed(2));
-  }, [mockCapital]);
 
   useEffect(() => {
     if (!resolvingPrediction) return;
@@ -471,8 +462,8 @@ export default function App() {
           }
         }
         
-        const profit = resolvingPrediction.stake * 0.1;
-        const payout = isWin ? profit : -resolvingPrediction.stake;
+        const profit = resolvingPrediction.price * 0.1;
+        const payout = isWin ? profit : -resolvingPrediction.price;
         
         setResolutionOutcome({
           isWin,
@@ -480,11 +471,9 @@ export default function App() {
           payout
         });
         
-        setMockCapital(prev => Math.max(0, prev + payout));
-        
         const newHistoryItem: RequestHistory = {
           id: 'rh-' + Date.now(),
-          type: 'Premium Staked Pick',
+          type: 'Premium AI Prediction',
           query: `${resolvingPrediction.prediction.title}: ${resolvingPrediction.optionName} (${isWin ? 'Won' : 'Lost'})`,
           price: resolvingPrediction.prediction.price,
           timestamp: 'Just now',
@@ -502,13 +491,13 @@ export default function App() {
     pred: Prediction,
     optionName: string,
     chance: number,
-    stake: number
+    price: number
   ) => {
     setResolvingPrediction({
       prediction: pred,
       optionName,
       chance,
-      stake
+      price
     });
     setResolvingStep(0);
     setResolutionOutcome(null);

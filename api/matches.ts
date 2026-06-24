@@ -5,7 +5,7 @@
  * football-data.org, normalized for the frontend. Logic is shared with the
  * Vite dev middleware via ./_sports.js. Set FOOTBALL_DATA_KEY in the env.
  */
-import { getMatches } from './_sports.js';
+import { getMatches } from './_sports';
 
 export default async function handler(_req: any, res: any) {
   try {
