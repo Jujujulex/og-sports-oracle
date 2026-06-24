@@ -32,8 +32,8 @@ const CONFIG = {
   ORACLE_PRIVATE_KEY: process.env.ORACLE_PRIVATE_KEY as `0x${string}`,
   
   // API Keys
-  API_FOOTBALL_KEY: process.env.API_FOOTBALL_KEY,
-  FOOTBALL_DATA_KEY: process.env.FOOTBALL_DATA_KEY,
+  API_FOOTBALL_KEY: process.env.API_FOOTBALL_KEY || 'c652439ba0msh9de614fdd557a70p1be632jsne16144aaf784',
+  FOOTBALL_DATA_KEY: process.env.FOOTBALL_DATA_KEY || '5dcc8513f3f94eb49222c91c5eceea2c',
   
   // Update intervals (in milliseconds)
   LIVE_MATCH_INTERVAL: 30000, // 30 seconds

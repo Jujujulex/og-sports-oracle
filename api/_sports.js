@@ -50,8 +50,11 @@ function normalize(m) {
   };
 }
 
+const DEFAULT_KEY = '5dcc8513f3f94eb49222c91c5eceea2c';
+
 export async function getMatches(key) {
-  if (!key) {
+  const apiKey = key || DEFAULT_KEY;
+  if (!apiKey) {
     const err = new Error('FOOTBALL_DATA_KEY is not configured on the server.');
     err.status = 500;
     throw err;
@@ -61,7 +64,7 @@ export async function getMatches(key) {
   const weekLater = new Date(today.getTime() + 7 * 86_400_000);
   const url = `${FD_BASE}/matches?dateFrom=${fmtDay(today)}&dateTo=${fmtDay(weekLater)}`;
 
-  const r = await fetch(url, { headers: { 'X-Auth-Token': key } });
+  const r = await fetch(url, { headers: { 'X-Auth-Token': apiKey } });
   if (!r.ok) {
     const err = new Error(`football-data.org returned ${r.status}`);
     err.status = r.status;
@@ -126,7 +129,8 @@ function neutralAnalysis(home, away) {
 }
 
 export async function getAnalysis(key, { competition, homeId, awayId, home = 'Home', away = 'Away' }) {
-  if (!key) {
+  const apiKey = key || DEFAULT_KEY;
+  if (!apiKey) {
     const err = new Error('FOOTBALL_DATA_KEY is not configured on the server.');
     err.status = 500;
     throw err;
@@ -135,7 +139,7 @@ export async function getAnalysis(key, { competition, homeId, awayId, home = 'Ho
   if (!competition || !homeId || !awayId) return neutralAnalysis(home, away);
 
   const r = await fetch(`${FD_BASE}/competitions/${competition}/standings`, {
-    headers: { 'X-Auth-Token': key },
+    headers: { 'X-Auth-Token': apiKey },
   });
   if (!r.ok) return neutralAnalysis(home, away);
 
@@ -192,14 +196,15 @@ export async function getAnalysis(key, { competition, homeId, awayId, home = 'Ho
 }
 
 export async function getStandings(key) {
-  if (!key) {
+  const apiKey = key || DEFAULT_KEY;
+  if (!apiKey) {
     const err = new Error('FOOTBALL_DATA_KEY is not configured on the server.');
     err.status = 500;
     throw err;
   }
 
   const r = await fetch(`${FD_BASE}/competitions/PL/standings`, {
-    headers: { 'X-Auth-Token': key },
+    headers: { 'X-Auth-Token': apiKey },
   });
   if (!r.ok) {
     const err = new Error(`football-data.org returned ${r.status}`);
