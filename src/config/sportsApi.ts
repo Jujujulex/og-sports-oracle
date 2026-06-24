@@ -74,3 +74,41 @@ export async function fetchAnalysis(match: Match): Promise<Analysis> {
   if (!res.ok) throw new Error(`Analysis failed (HTTP ${res.status})`);
   return res.json();
 }
+
+export interface Standing {
+  rank: number;
+  team: string;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  points: number;
+  form: string[];
+}
+
+export interface StandingsResult {
+  standings: Standing[];
+  source: 'live' | 'fallback';
+}
+
+export const FALLBACK_STANDINGS: Standing[] = [
+  { rank: 1, team: 'Arsenal', played: 20, won: 15, drawn: 3, lost: 2, points: 48, form: ['W', 'W', 'D', 'W', 'W'] },
+  { rank: 2, team: 'Man City', played: 20, won: 14, drawn: 4, lost: 2, points: 46, form: ['W', 'D', 'W', 'W', 'D'] },
+  { rank: 3, team: 'Liverpool', played: 20, won: 13, drawn: 5, lost: 2, points: 44, form: ['W', 'W', 'W', 'D', 'W'] },
+  { rank: 4, team: 'Aston Villa', played: 20, won: 12, drawn: 4, lost: 4, points: 40, form: ['D', 'W', 'W', 'L', 'W'] },
+  { rank: 5, team: 'Tottenham', played: 20, won: 11, drawn: 3, lost: 6, points: 36, form: ['L', 'W', 'W', 'D', 'L'] },
+];
+
+export async function fetchStandings(): Promise<StandingsResult> {
+  try {
+    const res = await fetch('/api/standings');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data.standings) || data.standings.length === 0) {
+      return { standings: FALLBACK_STANDINGS, source: 'fallback' };
+    }
+    return { standings: data.standings, source: 'live' };
+  } catch {
+    return { standings: FALLBACK_STANDINGS, source: 'fallback' };
+  }
+}

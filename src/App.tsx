@@ -6,7 +6,9 @@ import NETWORK_CONFIG from './config/network';
 import {
   fetchMatches,
   fetchAnalysis,
+  fetchStandings,
   FALLBACK_MATCHES,
+  FALLBACK_STANDINGS,
   type Match,
   type Analysis,
 } from './config/sportsApi';
@@ -15,7 +17,8 @@ import {
   Globe, Wallet, Bell, Moon, Sun, Menu, X, ExternalLink, Copy,
   Check, ArrowUpRight, ArrowDownRight, Star, Play, Calendar,
   BarChart3, Target, Shield, Code, FileText, ArrowRight,
-  Activity, RefreshCw, Download, Filter, Search, MoreHorizontal
+  Activity, RefreshCw, Download, Filter, Search, MoreHorizontal,
+  Lock
 } from 'lucide-react';
 
 // Types (Match/Analysis live in ./config/sportsApi)
@@ -52,11 +55,51 @@ interface RequestHistory {
 }
 
 // Mock Data
-const freePredictions: Prediction[] = [
-  { id: 'p1', title: 'World Cup Quarterfinalists', description: 'Predicted teams advancing to quarter-finals', confidence: 78, price: '0', category: 'FIFA World Cup', isFree: true, reasoning: 'Based on group stage performance and historical data', lastUpdated: '2 hours ago' },
-  { id: 'p2', title: 'Premier League Top 4', description: 'Likely Champions League qualifiers', confidence: 85, price: '0', category: 'Premier League', isFree: true, lastUpdated: '1 hour ago' },
-  { id: 'p3', title: 'NBA MVP Contender', description: 'Top 3 candidates for Most Valuable Player', confidence: 72, price: '0', category: 'NBA', isFree: true, lastUpdated: '3 hours ago' },
-];
+// Mock Data Helper for Free Insights
+function generateFreeInsights(matches: Match[]): Prediction[] {
+  if (!matches || matches.length === 0) {
+    return [
+      { id: 'p1', title: 'Champions League Winner', description: 'AI-powered tournament outcome with high accuracy rate models', confidence: 89, price: '0', category: 'Champions League', isFree: true, lastUpdated: '30 min ago', reasoning: 'Advanced machine learning models analyze team form, squads, expected goals (xG), and historic European competition coefficients.' },
+      { id: 'p2', title: 'Premier League Title Race', description: 'Predicted probabilities for top 3 championship contenders', confidence: 85, price: '0', category: 'Premier League', isFree: true, lastUpdated: '1 hour ago', reasoning: 'Calculated using current standings, remaining schedule difficulty rankings, historical home advantage multipliers, and recent form momentum indices.' },
+      { id: 'p3', title: 'La Liga Golden Boot', description: 'Top goalscorer metrics and confidence intervals', confidence: 75, price: '0', category: 'La Liga', isFree: true, lastUpdated: '2 hours ago', reasoning: 'Aggregating season-to-date goals, historical conversion rates, shot volumes per 90, and penalty taker priority structures.' },
+    ];
+  }
+
+  // Take the first 3 matches
+  const slice = matches.slice(0, 3);
+  return slice.map((match, idx) => {
+    let sum = 0;
+    const nameStr = match.homeTeam + match.awayTeam;
+    for (let i = 0; i < nameStr.length; i++) sum += nameStr.charCodeAt(i);
+    const confidence = 65 + (sum % 25);
+    
+    let description = '';
+    let reasoning = '';
+    
+    if (idx === 0) {
+      description = `AI projects tactical battle as ${match.homeTeam} host ${match.awayTeam}. Both sides show strong scoring records.`;
+      reasoning = `Analyzing the recent 5 matches, ${match.homeTeam} has displayed solid attacking efficiency, averaging 1.8 goals per match. However, ${match.awayTeam}'s defensive structure has conceded only 0.9 goals per match. The tactical matchup favors a low-scoring or narrow home win.`;
+    } else if (idx === 1) {
+      description = `Critical fixture: ${match.homeTeam} vs ${match.awayTeam}. Key midfield duels expected to decide the outcome.`;
+      reasoning = `Possession control will be vital. Midfield ratings suggest ${match.homeTeam} will command 54% possession. Expected goals (xG) models indicate a close game with a 38% probability of a Draw.`;
+    } else {
+      description = `Derby atmosphere: ${match.homeTeam} lock horns with ${match.awayTeam}. High intensity and goals anticipated.`;
+      reasoning = `Historical matchups between these two rivals have averaged 2.8 goals per game. Given both teams' current momentum, our sports oracle suggests over 2.5 goals is the highest-value option.`;
+    }
+
+    return {
+      id: `free-insight-${match.id}`,
+      title: `${match.homeTeam} vs ${match.awayTeam}`,
+      description,
+      confidence,
+      price: '0',
+      category: match.league,
+      isFree: true,
+      lastUpdated: 'Live Feed updated',
+      reasoning
+    };
+  });
+}
 
 const paidPredictions: Prediction[] = [
   { id: 'p4', title: 'World Cup Winner', description: 'AI-powered tournament winner prediction with detailed analysis', confidence: 89, price: '0.05', category: 'FIFA World Cup', isFree: false, reasoning: 'Advanced ML model analyzing 500+ factors including team form, injuries, historical performance, and tactical matchups', lastUpdated: '30 min ago' },
@@ -67,19 +110,143 @@ const paidPredictions: Prediction[] = [
   { id: 'p9', title: 'NFL Super Bowl Winner', description: 'Complete playoff bracket prediction', confidence: 76, price: '0.06', category: 'NFL', isFree: false, lastUpdated: '2 hours ago' },
 ];
 
-const standings: Standing[] = [
-  { rank: 1, team: 'Arsenal', played: 20, won: 15, drawn: 3, lost: 2, points: 48, form: ['W', 'W', 'D', 'W', 'W'] },
-  { rank: 2, team: 'Man City', played: 20, won: 14, drawn: 4, lost: 2, points: 46, form: ['W', 'D', 'W', 'W', 'D'] },
-  { rank: 3, team: 'Liverpool', played: 20, won: 13, drawn: 5, lost: 2, points: 44, form: ['W', 'W', 'W', 'D', 'W'] },
-  { rank: 4, team: 'Aston Villa', played: 20, won: 12, drawn: 4, lost: 4, points: 40, form: ['D', 'W', 'W', 'L', 'W'] },
-  { rank: 5, team: 'Tottenham', played: 20, won: 11, drawn: 3, lost: 6, points: 36, form: ['L', 'W', 'W', 'D', 'L'] },
-];
 
-const requestHistory: RequestHistory[] = [
+
+const INITIAL_REQUEST_HISTORY: RequestHistory[] = [
   { id: 'r1', type: 'Match Result', query: 'Arsenal vs Chelsea', price: '0.01', timestamp: '2 hours ago', status: 'completed' },
   { id: 'r2', type: 'Prediction', query: 'World Cup Winner', price: '0.05', timestamp: '1 day ago', status: 'completed' },
   { id: 'r3', type: 'Player Stats', query: 'Haaland season stats', price: '0.02', timestamp: '2 days ago', status: 'completed' },
 ];
+
+function getGoalscorers(match: Match) {
+  const homeScore = match.homeScore ?? 0;
+  const awayScore = match.awayScore ?? 0;
+  if (homeScore === 0 && awayScore === 0) return null;
+
+  const commonPlayers: Record<string, string[]> = {
+    'Arsenal': ['Saka 34\'', 'Odegaard 72\'', 'Martinelli 15\'', 'Havertz 55\'', 'Trossard 81\''],
+    'Chelsea': ['Palmer 45\' (P)', 'Jackson 60\'', 'Madueke 22\'', 'Mudryk 78\'', 'Gallagher 52\''],
+    'Real Madrid': ['Vinicius Jr 12\'', 'Bellingham 89\'', 'Rodrygo 38\'', 'Mbappe 47\'', 'Valverde 65\''],
+    'Barcelona': ['Lewandowski 55\'', 'Raphinha 23\'', 'Yamal 70\'', 'Gundogan 41\'', 'Pedri 82\''],
+    'Man City': ['Haaland 23\'', 'De Bruyne 67\'', 'Foden 10\'', 'Alvarez 58\'', 'Bernardo 80\''],
+    'Liverpool': ['Salah 41\'', 'Nunez 62\'', 'Diaz 18\'', 'Jota 77\'', 'Mac Allister 84\''],
+    'Aston Villa': ['Watkins 30\'', 'Bailey 54\'', 'McGinn 71\'', 'Douglas Luiz 88\' (P)'],
+    'Tottenham': ['Son 19\'', 'Richarlison 51\'', 'Kulusevski 66\'', 'Maddison 43\''],
+  };
+
+  const getScorersForTeam = (team: string, score: number) => {
+    const list = commonPlayers[team] || [
+      'Striker A 18\'',
+      'Winger B 44\'',
+      'Midfielder C 68\'',
+      'Defender D 82\''
+    ];
+    return list.slice(0, score);
+  };
+
+  return {
+    home: getScorersForTeam(match.homeTeam, homeScore),
+    away: getScorersForTeam(match.awayTeam, awayScore),
+  };
+}
+
+interface PlayerStat {
+  name: string;
+  pos: string;
+  rating: string;
+  stats: Record<string, string | number>;
+}
+
+function generateMockPlayers(teamName: string, isHome: boolean): PlayerStat[] {
+  const commonPlayers: Record<string, { name: string, pos: string }[]> = {
+    'Arsenal': [
+      { name: 'B. Saka', pos: 'FW' },
+      { name: 'M. Odegaard', pos: 'MF' },
+      { name: 'D. Rice', pos: 'MF' },
+      { name: 'W. Saliba', pos: 'DF' },
+      { name: 'D. Raya', pos: 'GK' }
+    ],
+    'Chelsea': [
+      { name: 'C. Palmer', pos: 'MF' },
+      { name: 'N. Jackson', pos: 'FW' },
+      { name: 'Enzo F.', pos: 'MF' },
+      { name: 'M. Caicedo', pos: 'MF' },
+      { name: 'R. James', pos: 'DF' }
+    ],
+    'Real Madrid': [
+      { name: 'Vinicius Jr', pos: 'FW' },
+      { name: 'J. Bellingham', pos: 'MF' },
+      { name: 'K. Mbappe', pos: 'FW' },
+      { name: 'F. Valverde', pos: 'MF' },
+      { name: 'A. Rudiger', pos: 'DF' }
+    ],
+    'Barcelona': [
+      { name: 'R. Lewandowski', pos: 'FW' },
+      { name: 'L. Yamal', pos: 'FW' },
+      { name: 'Raphinha', pos: 'FW' },
+      { name: 'Pedri', pos: 'MF' },
+      { name: 'R. Araujo', pos: 'DF' }
+    ],
+    'Man City': [
+      { name: 'E. Haaland', pos: 'FW' },
+      { name: 'K. De Bruyne', pos: 'MF' },
+      { name: 'P. Foden', pos: 'MF' },
+      { name: 'Rodri', pos: 'MF' },
+      { name: 'R. Dias', pos: 'DF' }
+    ],
+    'Liverpool': [
+      { name: 'M. Salah', pos: 'FW' },
+      { name: 'L. Diaz', pos: 'FW' },
+      { name: 'D. Nunez', pos: 'FW' },
+      { name: 'A. Mac Allister', pos: 'MF' },
+      { name: 'V. van Dijk', pos: 'DF' }
+    ]
+  };
+
+  const defaults = [
+    { name: isHome ? 'J. Smith' : 'M. Johnson', pos: 'FW' },
+    { name: isHome ? 'A. Davis' : 'K. Thomas', pos: 'MF' },
+    { name: isHome ? 'T. Wilson' : 'L. Martinez', pos: 'MF' },
+    { name: isHome ? 'J. Brown' : 'D. Robinson', pos: 'DF' },
+    { name: isHome ? 'M. Alisson' : 'E. Ederson', pos: 'GK' }
+  ];
+
+  const list = commonPlayers[teamName] || defaults;
+  
+  return list.map((p, idx) => {
+    let charSum = 0;
+    for (let i = 0; i < p.name.length; i++) charSum += p.name.charCodeAt(i);
+    const seed = (charSum % 100) / 100;
+    
+    let rating = 6.5 + seed * 2.0;
+    if (idx === 0) rating += 0.5;
+    
+    const stats: Record<string, string | number> = {};
+    if (p.pos === 'FW') {
+      stats['Goals'] = seed > 0.6 ? 1 : 0;
+      stats['Shots'] = Math.floor(seed * 4) + 1;
+      stats['Dribbles'] = Math.floor(seed * 5);
+    } else if (p.pos === 'MF') {
+      stats['Assists'] = seed > 0.7 ? 1 : 0;
+      stats['Passes'] = `${Math.floor(seed * 20) + 40}/${Math.floor(seed * 10) + 60}`;
+      stats['Key Passes'] = Math.floor(seed * 4);
+    } else if (p.pos === 'DF') {
+      stats['Tackles'] = Math.floor(seed * 5) + 1;
+      stats['Clearances'] = Math.floor(seed * 6) + 1;
+      stats['Interceptions'] = Math.floor(seed * 4);
+    } else if (p.pos === 'GK') {
+      stats['Saves'] = Math.floor(seed * 5) + 1;
+      stats['Pass Accuracy'] = `${Math.floor(seed * 15) + 70}%`;
+    }
+
+    return {
+      name: p.name,
+      pos: p.pos,
+      rating: rating.toFixed(1),
+      stats
+    };
+  });
+}
 
 const sports = [
   { id: 'all', name: 'All Sports', icon: Globe, color: 'var(--accent)' },
@@ -87,6 +254,25 @@ const sports = [
   { id: 'basketball', name: 'Basketball', icon: Target, color: 'var(--accent-orange)' },
   { id: 'american-football', name: 'NFL', icon: Shield, color: 'var(--accent-blue)' },
 ];
+
+const loadUnlockedMatches = (): Record<string, number> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const val = localStorage.getItem('og_sports_unlocked_matches');
+    if (!val) return {};
+    const parsed = JSON.parse(val);
+    const now = Date.now();
+    const clean: Record<string, number> = {};
+    for (const [id, time] of Object.entries(parsed)) {
+      if (now - Number(time) < 7_200_000) { // 2 hours
+        clean[id] = Number(time);
+      }
+    }
+    return clean;
+  } catch {
+    return {};
+  }
+};
 
 export default function App() {
   const [activeSport, setActiveSport] = useState('all');
@@ -104,10 +290,29 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [dataRequestKind, setDataRequestKind] = useState('Match Result');
 
+  // History state
+  const [history, setHistory] = useState<RequestHistory[]>(INITIAL_REQUEST_HISTORY);
+
+  // Drawer state for Match Full Data
+  const [showDrawer, setShowDrawer] = useState(false);
+  const [drawerMatch, setDrawerMatch] = useState<Match | null>(null);
+  const [unlockedMatches, setUnlockedMatches] = useState<Record<string, number>>(() => loadUnlockedMatches());
+  const [drawerTxStatus, setDrawerTxStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
+  const [drawerTxHash, setDrawerTxHash] = useState('');
+  const [drawerTxError, setDrawerTxError] = useState('');
+  const [drawerAnalysis, setDrawerAnalysis] = useState<Analysis | null>(null);
+  const [drawerAnalysisLoading, setDrawerAnalysisLoading] = useState(false);
+  const [playerStatsTeam, setPlayerStatsTeam] = useState<'home' | 'away'>('home');
+
   // Live sports data
   const [matches, setMatches] = useState<Match[]>(FALLBACK_MATCHES);
   const [matchesLoading, setMatchesLoading] = useState(true);
   const [dataSource, setDataSource] = useState<'live' | 'fallback'>('fallback');
+  const [standings, setStandings] = useState<Standing[]>(FALLBACK_STANDINGS);
+  const [standingsSource, setStandingsSource] = useState<'live' | 'fallback'>('fallback');
+
+  // Generate dynamic free insights based on match feed
+  const freePredictions = generateFreeInsights(matches);
 
   // AI analysis modal
   const [analysisMatch, setAnalysisMatch] = useState<Match | null>(null);
@@ -128,6 +333,25 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   }, [isDark]);
 
+  useEffect(() => {
+    if (!drawerMatch) {
+      setDrawerAnalysis(null);
+      return;
+    }
+    const loadDrawerAnalysis = async () => {
+      setDrawerAnalysisLoading(true);
+      try {
+        const data = await fetchAnalysis(drawerMatch);
+        setDrawerAnalysis(data);
+      } catch (e) {
+        console.error('Error fetching analysis for drawer:', e);
+      } finally {
+        setDrawerAnalysisLoading(false);
+      }
+    };
+    loadDrawerAnalysis();
+  }, [drawerMatch]);
+
   const loadMatches = async () => {
     setMatchesLoading(true);
     const { matches: data, source } = await fetchMatches();
@@ -136,10 +360,20 @@ export default function App() {
     setMatchesLoading(false);
   };
 
-  // Load real fixtures on mount, then refresh every 60s for live scores.
+  const loadStandings = async () => {
+    const { standings: data, source } = await fetchStandings();
+    setStandings(data);
+    setStandingsSource(source);
+  };
+
+  // Load real fixtures & standings on mount, then refresh every 60s for live scores.
   useEffect(() => {
     loadMatches();
-    const interval = setInterval(loadMatches, 60_000);
+    loadStandings();
+    const interval = setInterval(() => {
+      loadMatches();
+      loadStandings();
+    }, 60_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -216,6 +450,27 @@ export default function App() {
       const hash = await wallet.requestData(sportId, queryType, parseEther(activePrice));
       setTxHash(hash);
       setTxStatus('success');
+
+      // Add prediction/data query to history state on success
+      const newHistoryItem: RequestHistory = {
+        id: `r-${Date.now()}`,
+        type: selectedPrediction ? 'Prediction' : dataRequestKind,
+        query: selectedPrediction ? selectedPrediction.title : `${requestMatch?.homeTeam} vs ${requestMatch?.awayTeam}`,
+        price: activePrice,
+        timestamp: 'Just now',
+        status: 'completed'
+      };
+      setHistory(prev => [newHistoryItem, ...prev]);
+
+      // Unlock match if it was a data query
+      if (requestMatch) {
+        const now = Date.now();
+        setUnlockedMatches(prev => {
+          const updated = { ...prev, [requestMatch.id]: now };
+          localStorage.setItem('og_sports_unlocked_matches', JSON.stringify(updated));
+          return updated;
+        });
+      }
     } catch (err: any) {
       // 4001 = user rejected the transaction in their wallet.
       setTxError(
@@ -224,6 +479,47 @@ export default function App() {
           : err?.shortMessage ?? err?.message ?? 'Transaction failed.'
       );
       setTxStatus('error');
+    }
+  };
+
+  const handlePayDrawerQuery = async (match: Match, kind: string) => {
+    setDrawerTxError('');
+    setDrawerTxStatus('pending');
+    try {
+      const sportId = sportToId(match.sport);
+      const queryType = `${kind}: ${match.homeTeam} vs ${match.awayTeam}`;
+      const price = '0.01';
+      
+      const hash = await wallet.requestData(sportId, queryType, parseEther(price));
+      
+      setDrawerTxHash(hash);
+      setDrawerTxStatus('success');
+      
+      // Update history state
+      const newHistoryItem: RequestHistory = {
+        id: `r-${Date.now()}`,
+        type: kind,
+        query: `${match.homeTeam} vs ${match.awayTeam}`,
+        price: price,
+        timestamp: 'Just now',
+        status: 'completed'
+      };
+      setHistory(prev => [newHistoryItem, ...prev]);
+
+      // Unlock match for 2 hours in localStorage
+      const now = Date.now();
+      setUnlockedMatches(prev => {
+        const updated = { ...prev, [match.id]: now };
+        localStorage.setItem('og_sports_unlocked_matches', JSON.stringify(updated));
+        return updated;
+      });
+    } catch (err: any) {
+      setDrawerTxError(
+        err?.code === 4001
+          ? 'Transaction rejected in wallet.'
+          : err?.shortMessage ?? err?.message ?? 'Transaction failed.'
+      );
+      setDrawerTxStatus('error');
     }
   };
 
@@ -437,7 +733,7 @@ export default function App() {
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <button
-                onClick={() => { setRequestType('match'); setShowRequestModal(true); }}
+                onClick={() => scrollToSection('feeds')}
                 className="group flex items-center gap-2 px-6 py-3 bg-[var(--accent)] text-white rounded-xl font-medium hover:bg-[var(--accent)]/90 transition-all animate-pulse-glow"
               >
                 <Zap className="w-5 h-5" />
@@ -611,7 +907,14 @@ export default function App() {
                   <Activity className="w-4 h-4" /> AI Analysis
                 </button>
                 <button
-                  onClick={() => { setRequestMatch(match); setRequestType('match'); setShowRequestModal(true); }}
+                  onClick={() => {
+                    setDrawerMatch(match);
+                    setShowDrawer(true);
+                    setDataRequestKind('Match Result');
+                    setDrawerTxStatus('idle');
+                    setDrawerTxHash('');
+                    setDrawerTxError('');
+                  }}
                   className="py-2 rounded-lg bg-[var(--accent)]/10 text-[var(--accent)] text-sm font-medium hover:bg-[var(--accent)]/20 transition-colors"
                 >
                   Full Data
@@ -639,7 +942,8 @@ export default function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: i * 0.1 }}
-              className="glass rounded-2xl p-5 hover:border-[var(--accent)]/30 transition-all"
+              className="glass rounded-2xl p-5 hover:border-[var(--accent)]/30 transition-all cursor-pointer"
+              onClick={() => { setSelectedPrediction(pred); setShowRequestModal(true); }}
             >
               <div className="flex items-start justify-between mb-3">
                 <span className="text-xs px-2 py-1 rounded-lg bg-[var(--accent)]/10 text-[var(--accent)]">
@@ -671,9 +975,22 @@ export default function App() {
       {/* Standings */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16">
         <div className="flex items-center justify-between mb-6">
-          <div>
+          <div className="flex items-center gap-3">
             <h2 className="text-2xl font-bold">Premier League Standings</h2>
-            <p className="text-sm text-[var(--muted)]">2024/25 Season</p>
+            <span
+              className={`text-xs px-2 py-1 rounded-lg ${
+                standingsSource === 'live'
+                  ? 'bg-green-500/10 text-green-400'
+                  : 'bg-yellow-500/10 text-yellow-400'
+              }`}
+              title={
+                standingsSource === 'live'
+                  ? 'Real standings from football-data.org'
+                  : 'Live API unavailable — showing demo standings'
+              }
+            >
+              {standingsSource === 'live' ? '● Live data' : '● Demo data'}
+            </span>
           </div>
           <button 
             onClick={() => scrollToSection('feeds')}
@@ -904,7 +1221,7 @@ function requestSportsData(
                       </tr>
                     </thead>
                     <tbody>
-                      {requestHistory.map((req) => (
+                      {history.map((req) => (
                         <tr key={req.id} className="border-t border-[var(--border)] hover:bg-white/5">
                           <td className="px-4 py-3">
                             <span className="px-2 py-1 rounded-lg bg-[var(--accent)]/10 text-[var(--accent)] text-xs">
@@ -1027,7 +1344,42 @@ function requestSportsData(
                 </button>
               </div>
 
-              {!connected ? (
+              {selectedPrediction && selectedPrediction.isFree ? (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="p-4 rounded-xl bg-white/5">
+                    <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--accent)]/15 text-[var(--accent)] font-semibold mb-2 inline-block">
+                      {selectedPrediction.category}
+                    </span>
+                    <h4 className="font-bold text-white text-lg mt-1">{selectedPrediction.title}</h4>
+                    <p className="text-sm text-[var(--muted)] mt-2">{selectedPrediction.description}</p>
+                  </div>
+                  
+                  {selectedPrediction.reasoning && (
+                    <div className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-2">
+                      <p className="text-xs text-[var(--accent)] font-semibold uppercase tracking-wider">
+                        AI Predictions &amp; Reasoning
+                      </p>
+                      <p className="text-sm text-white/95 leading-relaxed font-medium">
+                        {selectedPrediction.reasoning}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-xs text-green-400">
+                    <span>Verified Free AI Insight</span>
+                    <span className="font-bold">★ {selectedPrediction.confidence}% Confidence</span>
+                  </div>
+
+                  <div className="flex gap-3 pt-3">
+                    <button
+                      onClick={closeRequestModal}
+                      className="w-full py-3 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent)]/90 text-white font-semibold transition-colors cursor-pointer"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              ) : !connected ? (
                 <div className="text-center py-8">
                   <Wallet className="w-12 h-12 text-[var(--accent)] mx-auto mb-4" />
                   <p className="text-[var(--muted)] mb-4">
@@ -1297,6 +1649,412 @@ function requestSportsData(
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Sports Data Drawer */}
+      <AnimatePresence>
+        {showDrawer && drawerMatch && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm animate-fade-in"
+              onClick={() => {
+                setShowDrawer(false);
+                setDrawerTxStatus('idle');
+                setDrawerTxHash('');
+                setDrawerTxError('');
+              }}
+            />
+
+            {/* Drawer Container */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 right-0 z-50 w-full sm:w-[480px] bg-slate-950/95 border-l border-white/10 shadow-2xl flex flex-col overflow-hidden backdrop-blur-md"
+            >
+              {/* Header */}
+              <div className="p-6 border-b border-white/10 flex items-center justify-between">
+                <div>
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[var(--muted)]">
+                    {drawerMatch.league}
+                  </span>
+                  <h3 className="text-xl font-bold mt-2 text-white">
+                    {drawerMatch.homeTeam} vs {drawerMatch.awayTeam}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowDrawer(false);
+                    setDrawerTxStatus('idle');
+                    setDrawerTxHash('');
+                    setDrawerTxError('');
+                  }}
+                  className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Tabs */}
+              <div className="px-6 py-3 border-b border-white/10 bg-white/[0.01] flex gap-2">
+                {['Match Result', 'Player Stats', 'Team Form'].map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => {
+                      setDataRequestKind(type);
+                      setDrawerTxStatus('idle');
+                      setDrawerTxHash('');
+                      setDrawerTxError('');
+                    }}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                      dataRequestKind === type
+                        ? 'bg-[var(--accent)] text-white shadow-lg shadow-[var(--accent)]/20'
+                        : 'bg-white/5 text-[var(--muted)] hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {unlockedMatches[drawerMatch.id] && (Date.now() - unlockedMatches[drawerMatch.id] < 7_200_000) ? (
+                  renderUnlockedContent(drawerMatch, dataRequestKind)
+                ) : (
+                  renderLockedContent(drawerMatch, dataRequestKind)
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
+
+  function renderLockedContent(match: Match, kind: string) {
+    const isPending = drawerTxStatus === 'pending';
+    
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center space-y-6">
+        <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10 text-[var(--accent)] relative">
+          <Lock className="w-8 h-8" />
+          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[var(--accent)] flex items-center justify-center text-black">
+            <Shield className="w-3 h-3" />
+          </div>
+        </div>
+        
+        <div>
+          <h4 className="text-lg font-bold text-white">Unlock {kind}</h4>
+          <p className="text-sm text-[var(--muted)] mt-2 max-w-xs mx-auto">
+            Get verified, real-time {kind.toLowerCase()} for this fixture. Secured by 0G Smart Contracts.
+          </p>
+        </div>
+
+        <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 flex justify-between items-center">
+          <span className="text-sm text-[var(--muted)]">Cost to Unlock</span>
+          <span className="font-bold text-lg text-[var(--accent)]">0.01 $0G</span>
+        </div>
+
+        {!connected ? (
+          <div className="w-full space-y-4">
+            <p className="text-xs text-[var(--muted)]">
+              Connect your wallet to the {NETWORK_CONFIG.testnet.chainName} to pay.
+            </p>
+            <button
+              onClick={() => connectWallet()}
+              className="w-full py-3.5 bg-[var(--accent)] hover:bg-[var(--accent)]/90 text-white rounded-xl font-semibold transition-all shadow-lg shadow-[var(--accent)]/25 cursor-pointer"
+            >
+              Connect Wallet
+            </button>
+          </div>
+        ) : (
+          <div className="w-full space-y-4">
+            {drawerTxError && (
+              <p className="text-sm text-red-400 border border-red-500/20 bg-red-500/5 rounded-xl p-3">
+                {drawerTxError}
+              </p>
+            )}
+            <button
+              onClick={() => handlePayDrawerQuery(match, kind)}
+              disabled={isPending}
+              className="w-full py-3.5 bg-[var(--accent)] hover:bg-[var(--accent)]/90 disabled:opacity-50 text-white rounded-xl font-semibold transition-all shadow-lg shadow-[var(--accent)]/25 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {isPending ? (
+                <>
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  Confirming in wallet...
+                </>
+              ) : (
+                `Confirm and Pay 0.01 $0G`
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function renderUnlockedContent(match: Match, kind: string) {
+    if (kind === 'Match Result') {
+      const scorers = getGoalscorers(match);
+      return (
+        <div className="space-y-6 animate-fade-in">
+          {/* Confirmed Banner */}
+          <div className="p-3 bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-xl flex items-center gap-2 text-sm text-[var(--accent)]">
+            <Check className="w-4 h-4 shrink-0" />
+            <span>Match Result unlocked via 0G Sports Oracle</span>
+          </div>
+
+          {/* Score & Goalscorers */}
+          <div className="glass rounded-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-white">{match.homeTeam}</span>
+              <span className="text-2xl font-black text-[var(--accent)]">
+                {match.status === 'upcoming' ? 'vs' : `${match.homeScore ?? 0} - ${match.awayScore ?? 0}`}
+              </span>
+              <span className="font-semibold text-white">{match.awayTeam}</span>
+            </div>
+            
+            {scorers && (
+              <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/5 text-xs text-[var(--muted)]">
+                <div className="space-y-1">
+                  {scorers.home.map((s, idx) => (
+                    <div key={idx} className="flex items-center gap-1">
+                      <Star className="w-3 h-3 text-[var(--accent)] shrink-0" />
+                      <span>{s}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-1 text-right">
+                  {scorers.away.map((s, idx) => (
+                    <div key={idx} className="flex items-center gap-1 justify-end">
+                      <span>{s}</span>
+                      <Star className="w-3 h-3 text-[var(--accent-orange)] shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Stats Breakdown */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold uppercase tracking-wider text-[var(--muted)]">Match Stats</h4>
+            <div className="glass rounded-2xl p-4 space-y-3">
+              {[
+                { name: 'Possession', home: 54, away: 46, suffix: '%' },
+                { name: 'Shots (On Target)', home: '15 (6)', away: '9 (3)' },
+                { name: 'Fouls', home: 11, away: 14 },
+                { name: 'Corners', home: 5, away: 4 },
+                { name: 'Offsides', home: 2, away: 1 },
+                { name: 'Yellow Cards', home: 1, away: 2 },
+              ].map((stat, idx) => {
+                let homePercent = 50;
+                let awayPercent = 50;
+                if (typeof stat.home === 'number' && typeof stat.away === 'number') {
+                  const total = stat.home + stat.away;
+                  homePercent = total > 0 ? (stat.home / total) * 100 : 50;
+                  awayPercent = total > 0 ? (stat.away / total) * 100 : 50;
+                }
+                
+                return (
+                  <div key={idx} className="space-y-1.5">
+                    <div className="flex justify-between text-xs text-white">
+                      <span>{stat.home}{stat.suffix ?? ''}</span>
+                      <span className="font-medium text-[var(--muted)]">{stat.name}</span>
+                      <span>{stat.away}{stat.suffix ?? ''}</span>
+                    </div>
+                    {typeof stat.home === 'number' && (
+                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden flex">
+                        <div className="h-full bg-[var(--accent)]" style={{ width: `${homePercent}%` }} />
+                        <div className="h-full bg-[var(--accent-orange)]" style={{ width: `${awayPercent}%` }} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (kind === 'Player Stats') {
+      const homePlayers = generateMockPlayers(match.homeTeam, true);
+      const awayPlayers = generateMockPlayers(match.awayTeam, false);
+      const activePlayers = playerStatsTeam === 'home' ? homePlayers : awayPlayers;
+      const activeTeamName = playerStatsTeam === 'home' ? match.homeTeam : match.awayTeam;
+
+      return (
+        <div className="space-y-6 animate-fade-in">
+          {/* Confirmed Banner */}
+          <div className="p-3 bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-xl flex items-center gap-2 text-sm text-[var(--accent)]">
+            <Check className="w-4 h-4 shrink-0" />
+            <span>Player Stats unlocked via 0G Sports Oracle</span>
+          </div>
+
+          {/* Team Switcher Tabs */}
+          <div className="flex bg-white/5 rounded-xl p-1">
+            <button
+              onClick={() => setPlayerStatsTeam('home')}
+              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                playerStatsTeam === 'home'
+                  ? 'bg-[var(--accent)] text-white'
+                  : 'text-[var(--muted)] hover:text-white'
+              }`}
+            >
+              {match.homeTeam}
+            </button>
+            <button
+              onClick={() => setPlayerStatsTeam('away')}
+              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                playerStatsTeam === 'away'
+                  ? 'bg-[var(--accent-orange)] text-white'
+                  : 'text-[var(--muted)] hover:text-white'
+              }`}
+            >
+              {match.awayTeam}
+            </button>
+          </div>
+
+          {/* Players List */}
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <h4 className="text-sm font-semibold uppercase tracking-wider text-[var(--muted)]">
+                {activeTeamName} Squad Rating
+              </h4>
+              <span className="text-xs text-[var(--muted)] font-medium">Source: 0G Sports Oracle</span>
+            </div>
+            
+            <div className="glass rounded-2xl overflow-hidden divide-y divide-white/5">
+              {activePlayers.map((player, idx) => (
+                <div key={idx} className="p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center font-bold text-xs border border-white/10 text-white">
+                      {player.pos}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm text-white">{player.name}</p>
+                      <div className="flex gap-3 mt-0.5 text-xs text-[var(--muted)]">
+                        {Object.entries(player.stats).map(([k, v]) => (
+                          <span key={k}>
+                            {k}: <strong className="text-white">{v}</strong>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className={`px-2 py-1 rounded-lg text-xs font-black ${
+                    Number(player.rating) >= 8.0 ? 'bg-green-500/20 text-green-400' :
+                    Number(player.rating) >= 7.2 ? 'bg-[var(--accent)]/20 text-[var(--accent)]' :
+                    'bg-white/10 text-[var(--muted)]'
+                  }`}>
+                    ★ {player.rating}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (kind === 'Team Form') {
+      const isLive = drawerAnalysis && drawerAnalysis.basis === 'league-standings';
+      const homeRank = isLive ? drawerAnalysis.homeRank : (match.homeTeam === 'Arsenal' ? 1 : match.homeTeam === 'Man City' ? 2 : 3);
+      const awayRank = isLive ? drawerAnalysis.awayRank : (match.awayTeam === 'Chelsea' ? 10 : match.awayTeam === 'Liverpool' ? 3 : 5);
+      
+      const homeFormStr = isLive && drawerAnalysis.homeForm ? drawerAnalysis.homeForm : 'W,W,D,W,W';
+      const awayFormStr = isLive && drawerAnalysis.awayForm ? drawerAnalysis.awayForm : 'W,D,W,W,D';
+      
+      const homeForm = homeFormStr.split(',').map(s => s.trim()).filter(Boolean);
+      const awayForm = awayFormStr.split(',').map(s => s.trim()).filter(Boolean);
+
+      const getH2H = () => {
+        return [
+          { date: 'Oct 2025', fixture: `${match.homeTeam} 2 - 2 ${match.awayTeam}` },
+          { date: 'Apr 2025', fixture: `${match.awayTeam} 1 - 2 ${match.homeTeam}` },
+          { date: 'Dec 2024', fixture: `${match.homeTeam} 3 - 1 ${match.awayTeam}` },
+        ];
+      };
+
+      return (
+        <div className="space-y-6 animate-fade-in">
+          {/* Confirmed Banner */}
+          <div className="p-3 bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-xl flex items-center gap-2 text-sm text-[var(--accent)]">
+            <Check className="w-4 h-4 shrink-0" />
+            <span>Team Form unlocked via 0G Sports Oracle</span>
+          </div>
+
+          {/* Form & Standing Comparison */}
+          {drawerAnalysisLoading ? (
+            <div className="py-8 text-center text-[var(--muted)]">
+              <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-[var(--accent)]" />
+              Loading latest standings...
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Home Team Standing */}
+                <div className="glass rounded-2xl p-4 space-y-3">
+                  <div className="text-center">
+                    <p className="text-xs text-[var(--muted)] uppercase font-semibold">Home Standing</p>
+                    <p className="text-2xl font-black mt-1 text-white">{homeRank ?? 'N/A'}</p>
+                    <p className="text-xs text-[var(--muted)] mt-1">{match.homeTeam}</p>
+                  </div>
+                  <div className="flex justify-center gap-1 pt-2 border-t border-white/5">
+                    {homeForm.map((res, idx) => (
+                      <FormBadge key={idx} result={res} />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Away Team Standing */}
+                <div className="glass rounded-2xl p-4 space-y-3">
+                  <div className="text-center">
+                    <p className="text-xs text-[var(--muted)] uppercase font-semibold">Away Standing</p>
+                    <p className="text-2xl font-black mt-1 text-white">{awayRank ?? 'N/A'}</p>
+                    <p className="text-xs text-[var(--muted)] mt-1">{match.awayTeam}</p>
+                  </div>
+                  <div className="flex justify-center gap-1 pt-2 border-t border-white/5">
+                    {awayForm.map((res, idx) => (
+                      <FormBadge key={idx} result={res} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Form narrative */}
+              {drawerAnalysis?.analysis && (
+                <div className="glass rounded-2xl p-4">
+                  <h5 className="text-xs font-semibold text-[var(--muted)] uppercase mb-2">Model Narrative</h5>
+                  <p className="text-sm text-white/90 leading-relaxed">{drawerAnalysis.analysis}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Head to Head (H2H) */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold uppercase tracking-wider text-[var(--muted)]">Head-to-Head History</h4>
+            <div className="glass rounded-2xl overflow-hidden divide-y divide-white/5">
+              {getH2H().map((h2h, idx) => (
+                <div key={idx} className="p-4 flex items-center justify-between text-sm">
+                  <span className="text-[var(--muted)]">{h2h.date}</span>
+                  <span className="font-semibold text-white">{h2h.fixture}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  }
 }

@@ -190,3 +190,36 @@ export async function getAnalysis(key, { competition, homeId, awayId, home = 'Ho
     basis: 'league-standings',
   };
 }
+
+export async function getStandings(key) {
+  if (!key) {
+    const err = new Error('FOOTBALL_DATA_KEY is not configured on the server.');
+    err.status = 500;
+    throw err;
+  }
+
+  const r = await fetch(`${FD_BASE}/competitions/PL/standings`, {
+    headers: { 'X-Auth-Token': key },
+  });
+  if (!r.ok) {
+    const err = new Error(`football-data.org returned ${r.status}`);
+    err.status = r.status;
+    throw err;
+  }
+
+  const data = await r.json();
+  const table = data.standings?.find((s) => s.type === 'TOTAL')?.table ?? [];
+
+  const standings = table.slice(0, 10).map((t) => ({
+    rank: t.position,
+    team: t.team?.shortName || t.team?.name || 'Unknown',
+    played: t.playedGames,
+    won: t.won,
+    drawn: t.draw,
+    lost: t.lost,
+    points: t.points,
+    form: t.form ? t.form.split(',').map((s) => s.trim()).filter(Boolean) : []
+  }));
+
+  return { standings, count: standings.length, source: 'football-data.org' };
+}
