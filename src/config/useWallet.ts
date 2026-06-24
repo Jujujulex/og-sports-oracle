@@ -1,5 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
+import { encodeFunctionData } from 'viem';
 import NETWORK_CONFIG from './network';
+
+// Minimal ABI for the one payable entrypoint the frontend calls.
+const ORACLE_ABI = [
+  {
+    name: 'requestSportsData',
+    type: 'function',
+    stateMutability: 'payable',
+    inputs: [
+      { name: 'sportId', type: 'uint256' },
+      { name: 'queryType', type: 'string' },
+    ],
+    outputs: [{ type: 'uint256' }],
+  },
+] as const;
 
 // Minimal EIP-1193 provider typing so we don't need wagmi/ethers just to connect.
 interface Eip1193Provider {
@@ -59,8 +74,12 @@ export interface WalletState {
   connect: () => Promise<void>;
   disconnect: () => void;
   switchToOgChain: () => Promise<void>;
-  /** Send a native $0G payment. Returns the tx hash. Throws on rejection/failure. */
-  sendPayment: (to: string, amountWei: bigint) => Promise<string>;
+  /**
+   * Pay the SportsOracle contract for a data request via the payable
+   * requestSportsData(sportId, queryType) entrypoint. Returns the tx hash.
+   * Throws on rejection/revert.
+   */
+  requestData: (sportId: bigint, queryType: string, amountWei: bigint) => Promise<string>;
 }
 
 const shorten = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -153,19 +172,27 @@ export function useWallet(): WalletState {
     setError(null);
   }, []);
 
-  const sendPayment = useCallback(
-    async (to: string, amountWei: bigint): Promise<string> => {
+  const requestData = useCallback(
+    async (sportId: bigint, queryType: string, amountWei: bigint): Promise<string> => {
       if (!provider) throw new Error('No wallet connected.');
       if (!address) throw new Error('Connect your wallet first.');
-      // Make sure funds leave on the 0G chain, not whatever was selected.
+      // Make sure the call runs on the 0G chain, not whatever was selected.
       await ensureChain(provider);
+      // Encode the payable requestSportsData call so the contract doesn't
+      // revert (a plain value transfer has no payable receiver here).
+      const data = encodeFunctionData({
+        abi: ORACLE_ABI,
+        functionName: 'requestSportsData',
+        args: [sportId, queryType],
+      });
       const txHash = (await provider.request({
         method: 'eth_sendTransaction',
         params: [
           {
             from: address,
-            to,
+            to: NETWORK_CONFIG.contracts.sportsOracle,
             value: `0x${amountWei.toString(16)}`,
+            data,
           },
         ],
       })) as string;
@@ -184,7 +211,7 @@ export function useWallet(): WalletState {
     connect,
     disconnect,
     switchToOgChain,
-    sendPayment,
+    requestData,
   };
 }
 
